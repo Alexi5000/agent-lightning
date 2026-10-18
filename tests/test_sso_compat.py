@@ -48,7 +48,7 @@ async def test_litellm_sso_state_and_offline_token_exchange(
     )
     assert redirect is not None
     state = parse_qs(urlparse(redirect.headers["location"]).query)["state"][0]
-    cookies: SimpleCookie[str] = SimpleCookie()
+    cookies = SimpleCookie()
     cookies.load(redirect.headers["set-cookie"])
     assert cookies["sso_state"].value == state
     assert cookies["sso_state"]["httponly"]
