@@ -267,17 +267,26 @@ def test_managed_weave_restores_authentication_and_exporter():
 
     from agentlightning.instrumentation.weave import InMemoryWeaveTraceServer, instrument_weave, uninstrument_weave
 
-    original_auth = weave_init.get_wandb_auth_context
-    original_exporter = weave_init._setup_conversation_tracing
+    original_auth = getattr(weave_init, "get_wandb_auth_context")
+    original_exporter = getattr(weave_init, "_setup_conversation_tracing")
     original_server = weave_init.init_weave_get_server
     server = InMemoryWeaveTraceServer()
     instrument_weave(server)
     try:
         assert weave_init.init_weave_get_server(None) is server
-        assert weave_init.get_wandb_auth_context().bearer_token() == "agentlightning-local-trace"
-        assert weave_init._setup_conversation_tracing("local", "test", None) is None
+        assert getattr(weave_init, "get_wandb_auth_context")().bearer_token() == "agentlightning-local-trace"
+        assert getattr(weave_init, "_setup_conversation_tracing")("local", "test", None) is None
     finally:
         uninstrument_weave()
-    assert weave_init.get_wandb_auth_context is original_auth
-    assert weave_init._setup_conversation_tracing is original_exporter
+    assert getattr(weave_init, "get_wandb_auth_context") is original_auth
+    assert getattr(weave_init, "_setup_conversation_tracing") is original_exporter
     assert weave_init.init_weave_get_server is original_server
+
+
+@pytest.mark.weave
+def test_managed_weave_rejects_unsupported_remote_operations():
+    from agentlightning.instrumentation.weave import InMemoryWeaveTraceServer
+
+    server = InMemoryWeaveTraceServer()
+    with pytest.raises(NotImplementedError, match="does not support genai_otel_export"):
+        server.genai_otel_export(None)

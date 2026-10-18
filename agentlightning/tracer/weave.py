@@ -5,7 +5,6 @@ from __future__ import annotations
 import asyncio
 import concurrent.futures as futures
 import logging
-import os
 import re
 import weakref
 from contextlib import asynccontextmanager, contextmanager
