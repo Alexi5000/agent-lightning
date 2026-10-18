@@ -82,6 +82,7 @@ core-legacy = [
   "openai<2.0.0",
 ]
 core-stable = [
+  "litellm[proxy]>=1.84,<1.104",
   "openai-agents>=0.5.1,<0.6",
   "agentops>=0.4.21",
   "openai>=2.26.0,<2.27",
