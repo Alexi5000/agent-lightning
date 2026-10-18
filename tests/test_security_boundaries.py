@@ -83,6 +83,14 @@ def test_proxy_http_boundaries(source: str, monkeypatch: pytest.MonkeyPatch) -> 
         assert url.netloc == "127.0.0.1:8001"
         assert url.path.startswith("/v1/")
         assert not url.query and not url.fragment
+    for path, encoded in [
+        ("models/provider/model%20v2", "models/provider/model%20v2"),
+        ("models/模型", "models/%E6%A8%A1%E5%9E%8B"),
+        ("models/a%25b", "models/a%25b"),
+        ("models/model.v2_~", "models/model.v2_~"),
+    ]:
+        assert client.get("/v1/" + path).status_code == 200
+        assert backend.call_args.kwargs["url"] == "http://127.0.0.1:8001/v1/" + encoded
     backend.return_value = SimpleNamespace(
         status_code=400,
         content=b'<script>alert("unsafe")</script>',
