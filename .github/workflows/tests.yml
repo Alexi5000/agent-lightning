@@ -213,11 +213,11 @@ jobs:
         env:
           PYTEST_ADDOPTS: "--color=yes"
 
-      - name: Verify legacy LiteLLM crypto compatibility
+      - name: Verify legacy LiteLLM security compatibility
         if: matrix.env.setup-script == 'legacy' && matrix.mark.id == 'others'
         run: |
           uv pip install --no-deps litellm==1.74.15
-          uv run --no-sync pytest -v tests/test_crypto_compat.py
+          uv run --no-sync pytest -v tests/test_crypto_compat.py tests/test_sso_compat.py tests/test_multipart_compat.py tests/llm_proxy/test_llm_proxy_cpu.py tests/llm_proxy/test_stream.py -m "not openai and not gpu"
 
   test-js:
     name: Test (JavaScript)

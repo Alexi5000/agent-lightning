@@ -38,6 +38,8 @@ The Linux lock also overrides the legacy LiteLLM cryptography pin with cryptogra
 
 The lock overrides CrewAI's legacy json-repair pin with json-repair 0.60.1. Offline checks cover CrewAI tool-argument parsing, final answers, and rejection of circular JSON Schema references within a bounded subprocess. This does not validate live CrewAI provider calls.
 
+The lock overrides legacy LiteLLM HTTP pins with FastAPI 0.140.x, Starlette 1.3.x, and fastapi-sso 0.23.x. FastAPI's standard extras remain installed. CPU tests exercise store HTTP requests, proxy start/restart and completion streaming, and an offline Google SSO authorization-code exchange with missing or forged state rejected before token exchange. Live identity providers and GPU serving still require deployment-specific validation.
+
 The fork runs CPU validation in `tests.yml`. Upstream publishing, paid-service examples, and GPU workflows remain disabled until their infrastructure and destinations are configured.
 
 ```bash
