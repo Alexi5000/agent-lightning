@@ -15,7 +15,12 @@ from agentlightning.llm_proxy import LightningOpenTelemetry
 async def test_parentless_service_event_does_not_require_timestamps():
     telemetry = LightningOpenTelemetry.__new__(LightningOpenTelemetry)
     payload = ServiceLoggerPayload(
-        is_error=False, service=ServiceTypes.LITELLM, duration=0.0, call_type="completion", event_metadata=None
+        is_error=False,
+        error=None,
+        service=ServiceTypes.LITELLM,
+        duration=0.0,
+        call_type="completion",
+        event_metadata=None,
     )
     await telemetry.async_service_success_hook(payload)
 
@@ -29,7 +34,12 @@ async def test_parented_service_event_retains_span_and_timestamps(as_datetime: b
     telemetry = LightningOpenTelemetry.__new__(LightningOpenTelemetry)
     telemetry.tracer = provider.get_tracer("service-test")
     payload = ServiceLoggerPayload(
-        is_error=False, service=ServiceTypes.LITELLM, duration=1.0, call_type="completion", event_metadata=None
+        is_error=False,
+        error=None,
+        service=ServiceTypes.LITELLM,
+        duration=1.0,
+        call_type="completion",
+        event_metadata=None,
     )
     start, end = (datetime.fromtimestamp(100), datetime.fromtimestamp(101)) if as_datetime else (100.0, 101.0)
     with telemetry.tracer.start_as_current_span("request") as parent:
@@ -40,6 +50,7 @@ async def test_parented_service_event_retains_span_and_timestamps(as_datetime: b
     assert service_span.end_time == 101_000_000_000
     assert service_span.parent is not None
     assert service_span.parent.span_id == parent.get_span_context().span_id
+    assert service_span.attributes is not None
     assert service_span.attributes["purpose"] == "regression"
     provider.shutdown()
 
@@ -50,7 +61,12 @@ async def test_parented_missing_timestamps_still_reports_upstream_error():
     telemetry = LightningOpenTelemetry.__new__(LightningOpenTelemetry)
     telemetry.tracer = provider.get_tracer("service-test")
     payload = ServiceLoggerPayload(
-        is_error=False, service=ServiceTypes.LITELLM, duration=0.0, call_type="completion", event_metadata=None
+        is_error=False,
+        error=None,
+        service=ServiceTypes.LITELLM,
+        duration=0.0,
+        call_type="completion",
+        event_metadata=None,
     )
     with telemetry.tracer.start_as_current_span("request") as parent:
         with pytest.raises(AttributeError, match="timestamp"):
