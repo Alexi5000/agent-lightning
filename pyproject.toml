@@ -40,7 +40,7 @@ verl = [
 ]
 
 weave = [
-  "weave==0.52.22",
+  "weave==0.53.12",
 ]
 
 # Store-related dependencies.

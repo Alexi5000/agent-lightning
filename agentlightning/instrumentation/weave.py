@@ -10,10 +10,11 @@ from typing import Any, Callable, Dict, Iterator, List
 
 import weave.trace.weave_init
 from pydantic import validate_call
+from weave.shared.service_interface import ServerInfoRes
 from weave.trace_server import trace_server_interface as tsi
 from weave.trace_server.ids import generate_id
 from weave.trace_server_bindings.client_interface import TraceServerClientInterface
-from weave.trace_server_bindings.models import ServerInfoRes
+from weave.wandb_interface.auth import ApiKeyCredentials
 
 logger = logging.getLogger(__name__)
 
@@ -235,7 +236,7 @@ class InMemoryWeaveTraceServer(TraceServerClientInterface):
 
     @validate_call
     def feedback_query(self, req: tsi.FeedbackQueryReq) -> tsi.FeedbackQueryRes:
-        return tsi.FeedbackQueryRes(result=[])
+        return tsi.FeedbackQueryRes(result=[], total_count=0)
 
     @validate_call
     def feedback_purge(self, req: tsi.FeedbackPurgeReq) -> tsi.FeedbackPurgeRes:
@@ -250,12 +251,6 @@ class InMemoryWeaveTraceServer(TraceServerClientInterface):
             wb_user_id="dummy",
             payload={},
         )
-
-    # --- Action API ---
-
-    @validate_call
-    def actions_execute_batch(self, req: tsi.ActionsExecuteBatchReq) -> tsi.ActionsExecuteBatchRes:
-        return tsi.ActionsExecuteBatchRes()
 
     # --- Execute LLM API ---
 
@@ -300,11 +295,6 @@ class InMemoryWeaveTraceServer(TraceServerClientInterface):
     @validate_call
     def evaluation_status(self, req: tsi.EvaluationStatusReq) -> tsi.EvaluationStatusRes:
         return tsi.EvaluationStatusRes(status=tsi.EvaluationStatusNotFound())
-
-    # --- OTEL API ---
-
-    def otel_export(self, req: tsi.OtelExportReq) -> tsi.OtelExportRes:
-        return tsi.OtelExportRes()
 
     # ==========================================
     # Object Interface (V2 APIs)
@@ -465,11 +455,118 @@ class InMemoryWeaveTraceServer(TraceServerClientInterface):
     def calls_usage(self, *args: Any, **kwargs: Any) -> Any:
         raise NotImplementedError()
 
+    def agent_agents_query(self, *args: Any, **kwargs: Any) -> Any:
+        raise NotImplementedError("Managed local tracing does not support agent_agents_query")
+
+    def agent_conversation_chat(self, *args: Any, **kwargs: Any) -> Any:
+        raise NotImplementedError("Managed local tracing does not support agent_conversation_chat")
+
+    def agent_conversation_spans(self, *args: Any, **kwargs: Any) -> Any:
+        raise NotImplementedError("Managed local tracing does not support agent_conversation_spans")
+
+    def agent_custom_attrs_schema(self, *args: Any, **kwargs: Any) -> Any:
+        raise NotImplementedError("Managed local tracing does not support agent_custom_attrs_schema")
+
+    def agent_search(self, *args: Any, **kwargs: Any) -> Any:
+        raise NotImplementedError("Managed local tracing does not support agent_search")
+
+    def agent_spans_query(self, *args: Any, **kwargs: Any) -> Any:
+        raise NotImplementedError("Managed local tracing does not support agent_spans_query")
+
+    def agent_spans_stats(self, *args: Any, **kwargs: Any) -> Any:
+        raise NotImplementedError("Managed local tracing does not support agent_spans_stats")
+
+    def agent_traces_chat(self, *args: Any, **kwargs: Any) -> Any:
+        raise NotImplementedError("Managed local tracing does not support agent_traces_chat")
+
+    def agent_versions_query(self, *args: Any, **kwargs: Any) -> Any:
+        raise NotImplementedError("Managed local tracing does not support agent_versions_query")
+
+    def aliases_list(self, *args: Any, **kwargs: Any) -> Any:
+        raise NotImplementedError("Managed local tracing does not support aliases_list")
+
+    def annotation_queue_delete(self, *args: Any, **kwargs: Any) -> Any:
+        raise NotImplementedError("Managed local tracing does not support annotation_queue_delete")
+
+    def annotation_queue_update(self, *args: Any, **kwargs: Any) -> Any:
+        raise NotImplementedError("Managed local tracing does not support annotation_queue_update")
+
+    def calls_score(self, *args: Any, **kwargs: Any) -> Any:
+        raise NotImplementedError("Managed local tracing does not support calls_score")
+
+    def custom_runtime_apply(self, *args: Any, **kwargs: Any) -> Any:
+        raise NotImplementedError("Managed local tracing does not support custom_runtime_apply")
+
+    def dataset_sources_link(self, *args: Any, **kwargs: Any) -> Any:
+        raise NotImplementedError("Managed local tracing does not support dataset_sources_link")
+
+    def dataset_sources_link_delete(self, *args: Any, **kwargs: Any) -> Any:
+        raise NotImplementedError("Managed local tracing does not support dataset_sources_link_delete")
+
+    def dataset_sources_query(self, *args: Any, **kwargs: Any) -> Any:
+        raise NotImplementedError("Managed local tracing does not support dataset_sources_query")
+
+    def eval_results_query(self, *args: Any, **kwargs: Any) -> Any:
+        raise NotImplementedError("Managed local tracing does not support eval_results_query")
+
+    def export_start(self, *args: Any, **kwargs: Any) -> Any:
+        raise NotImplementedError("Managed local tracing does not support export_start")
+
+    def export_status(self, *args: Any, **kwargs: Any) -> Any:
+        raise NotImplementedError("Managed local tracing does not support export_status")
+
+    def feedback_aggregate(self, *args: Any, **kwargs: Any) -> Any:
+        raise NotImplementedError("Managed local tracing does not support feedback_aggregate")
+
+    def feedback_payload_schema(self, *args: Any, **kwargs: Any) -> Any:
+        raise NotImplementedError("Managed local tracing does not support feedback_payload_schema")
+
+    def feedback_stats(self, *args: Any, **kwargs: Any) -> Any:
+        raise NotImplementedError("Managed local tracing does not support feedback_stats")
+
+    def genai_otel_export(self, *args: Any, **kwargs: Any) -> Any:
+        raise NotImplementedError("Managed local tracing does not support genai_otel_export")
+
+    def obj_add_tags(self, *args: Any, **kwargs: Any) -> Any:
+        raise NotImplementedError("Managed local tracing does not support obj_add_tags")
+
+    def obj_remove_aliases(self, *args: Any, **kwargs: Any) -> Any:
+        raise NotImplementedError("Managed local tracing does not support obj_remove_aliases")
+
+    def obj_remove_tags(self, *args: Any, **kwargs: Any) -> Any:
+        raise NotImplementedError("Managed local tracing does not support obj_remove_tags")
+
+    def obj_set_aliases(self, *args: Any, **kwargs: Any) -> Any:
+        raise NotImplementedError("Managed local tracing does not support obj_set_aliases")
+
+    def otel_export(self, *args: Any, **kwargs: Any) -> Any:
+        raise NotImplementedError("Managed local tracing does not support otel_export")
+
+    def project_ttl_settings_read(self, *args: Any, **kwargs: Any) -> Any:
+        raise NotImplementedError("Managed local tracing does not support project_ttl_settings_read")
+
+    def project_ttl_settings_update(self, *args: Any, **kwargs: Any) -> Any:
+        raise NotImplementedError("Managed local tracing does not support project_ttl_settings_update")
+
+    def projects_info(self, *args: Any, **kwargs: Any) -> Any:
+        raise NotImplementedError("Managed local tracing does not support projects_info")
+
+    def rescore(self, *args: Any, **kwargs: Any) -> Any:
+        raise NotImplementedError("Managed local tracing does not support rescore")
+
+    def source_datasets_query(self, *args: Any, **kwargs: Any) -> Any:
+        raise NotImplementedError("Managed local tracing does not support source_datasets_query")
+
+    def tags_list(self, *args: Any, **kwargs: Any) -> Any:
+        raise NotImplementedError("Managed local tracing does not support tags_list")
+
 
 # Module-level storage for originals
 _original_init_weave_get_server: Callable[..., Any] | None = None
 _original_get_entity_project_from_project_name: Callable[..., Any] | None = None
 _original_get_username: Callable[..., Any] | None = None
+_original_get_wandb_auth_context: Callable[..., Any] | None = None
+_original_setup_conversation_tracing: Callable[..., Any] | None = None
 
 
 def init_weave_get_server_factory(server: InMemoryWeaveTraceServer) -> Callable[..., Any]:
@@ -506,10 +603,23 @@ def get_username() -> str:
         return "agl"
 
 
+def _local_auth_context() -> ApiKeyCredentials:
+    return ApiKeyCredentials("agentlightning-local-trace")
+
+
+def _disable_remote_exporter(*args: Any, **kwargs: Any) -> None:
+    return None
+
+
 def instrument_weave(server: InMemoryWeaveTraceServer):
     """Patch the Weave/W&B integration to bypass actual network calls for testing."""
 
     global _original_init_weave_get_server, _original_get_entity_project_from_project_name, _original_get_username
+    global _original_get_wandb_auth_context, _original_setup_conversation_tracing
+    _original_get_wandb_auth_context = getattr(weave.trace.weave_init, "get_wandb_auth_context")
+    _original_setup_conversation_tracing = getattr(weave.trace.weave_init, "_setup_conversation_tracing")
+    setattr(weave.trace.weave_init, "get_wandb_auth_context", _local_auth_context)
+    setattr(weave.trace.weave_init, "_setup_conversation_tracing", _disable_remote_exporter)
     _original_init_weave_get_server = weave.trace.weave_init.init_weave_get_server
     _original_get_entity_project_from_project_name = weave.trace.weave_init.get_entity_project_from_project_name
     _original_get_username = weave.trace.weave_init.get_username
@@ -521,6 +631,14 @@ def instrument_weave(server: InMemoryWeaveTraceServer):
 def uninstrument_weave():
     """Restore the original Weave/W&B integration methods and HTTP requests."""
     global _original_init_weave_get_server, _original_get_entity_project_from_project_name, _original_get_username
+    global _original_get_wandb_auth_context, _original_setup_conversation_tracing
+
+    if _original_get_wandb_auth_context is not None:
+        setattr(weave.trace.weave_init, "get_wandb_auth_context", _original_get_wandb_auth_context)
+        _original_get_wandb_auth_context = None
+    if _original_setup_conversation_tracing is not None:
+        setattr(weave.trace.weave_init, "_setup_conversation_tracing", _original_setup_conversation_tracing)
+        _original_setup_conversation_tracing = None
 
     if _original_init_weave_get_server is not None:
         weave.trace.weave_init.init_weave_get_server = _original_init_weave_get_server
