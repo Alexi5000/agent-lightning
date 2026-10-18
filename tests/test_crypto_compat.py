@@ -1,3 +1,5 @@
+# Copyright (c) Microsoft. All rights reserved.
+
 import base64
 import json
 from datetime import datetime, timedelta, timezone
@@ -9,6 +11,7 @@ from cryptography import x509
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import padding, rsa
 from cryptography.x509.oid import NameOID
+from jwt.algorithms import RSAAlgorithm
 from litellm.proxy.auth.handle_jwt import JWTHandler
 from litellm.proxy.auth.litellm_license import LicenseCheck
 
@@ -34,13 +37,13 @@ async def test_litellm_jwt_crypto_compatibility(certificate: bool, monkeypatch: 
         )
         key: Any = cert.public_bytes(serialization.Encoding.PEM).decode()
     else:
-        key = json.loads(jwt.algorithms.RSAAlgorithm.to_jwk(public_key))
+        key = json.loads(RSAAlgorithm.to_jwk(public_key))
 
     async def local_key(kid: str | None) -> Any:
         assert kid is None
         return key
 
-    handler = JWTHandler()
+    handler: Any = JWTHandler()
     monkeypatch.setattr(handler, "get_public_key", local_key)
     try:
         token = jwt.encode({"sub": "offline-user"}, private_key, algorithm="RS256")
@@ -62,7 +65,7 @@ def test_litellm_offline_license_signature(monkeypatch: pytest.MonkeyPatch) -> N
         padding.PSS(mgf=padding.MGF1(hashes.SHA256()), salt_length=padding.PSS.MAX_LENGTH),
         hashes.SHA256(),
     )
-    checker = LicenseCheck()
+    checker: Any = LicenseCheck()
     valid = base64.b64encode(message + b"." + signature).decode()
     assert checker.verify_license_without_api_request(private_key.public_key(), valid) is True
     invalid = base64.b64encode(message.replace(b"10", b"11") + b"." + signature).decode()
