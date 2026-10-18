@@ -3,7 +3,7 @@ name = "agentlightning"
 version = "0.3.1"
 description = "Agent-lightning is the absolute trainer to light up AI agents."
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.10,<3.14"
 dependencies = [
   "graphviz",
   "psutil",
@@ -14,11 +14,11 @@ dependencies = [
   "uvicorn",
   "fastapi",
   "aiohttp",
-  "opentelemetry-api>=1.35",
-  "opentelemetry-sdk>=1.35",
-  "opentelemetry-exporter-otlp>=1.35",
-  "litellm[proxy]>=1.74",
-  "pydantic>=2.11",
+  "opentelemetry-api>=1.35,<1.39",
+  "opentelemetry-sdk>=1.35,<1.39",
+  "opentelemetry-exporter-otlp>=1.35,<1.39",
+  "litellm[proxy]>=1.74,<1.105",
+  "pydantic[email]>=2.11",
   "openai",
   "rich",
   "portpicker",
@@ -39,7 +39,7 @@ verl = [
 ]
 
 weave = [
-  "weave>=0.52.22",
+  "weave==0.52.22",
 ]
 
 # Store-related dependencies.
@@ -60,7 +60,7 @@ dev = [
   "pytest-rerunfailures",
   "black",
   "isort",
-  "pyright",
+  "pyright==1.1.407",
   "mkdocs",
   "mkdocs-material",
   "mkdocstrings[python]",
@@ -81,8 +81,9 @@ core-legacy = [
   "openai<2.0.0",
 ]
 core-stable = [
+  "openai-agents>=0.5.1,<0.6",
   "agentops>=0.4.21",
-  "openai>=2.0.0",
+  "openai>=2.8.0,<2.9",
 ]
 
 # For PyTorch.
@@ -109,7 +110,7 @@ torch-stable = [
   # Similar issues with vLLM 0.11.2 and 0.12.0
   "vllm>=0.10.2,!=0.11.1,!=0.11.2,!=0.12.0",
   # LiteLLM can then be upgraded with new vLLM
-  "litellm[proxy]>=1.78",
+  "litellm[proxy]>=1.78,<1.105",
 ]
 torch-legacy = [
   {include-group = "core-legacy"},
@@ -195,7 +196,7 @@ autogen = [
   # "uv",
 ]
 openai-agents = [
-  "openai-agents",
+  "openai-agents<0.6",
   "openai",
   # Compatibility issues with the latest version of OpenAI, temporarily fixed version
   # Issue: https://github.com/openai/openai-agents-python/issues/2038
@@ -277,8 +278,9 @@ dependency-metadata = [
 ]
 
 override-dependencies = [
+  "pydantic>=2.11,<2.13",
   # A conflict between the dependency of litellm[proxy] and crewai[tools]
-  "mcp>=1.19.0",
+  "mcp>=1.19.0,<2",
   "uvicorn>=0.38.0",
   # Conflicts between packaging dependency of pyvers (dependency of tensordict) and agentops.
   "packaging>=24.0",
@@ -316,7 +318,10 @@ flash-attn = [
 ]
 
 [tool.uv.dependency-groups]
-tinker = {requires-python = ">=3.11"}
+tinker = {requires-python = ">=3.11,<3.14"}
+vllm-0-10-2 = {requires-python = ">=3.10,<3.14"}
+vllm-0-11-0 = {requires-python = ">=3.10,<3.14"}
+torch-legacy = {requires-python = ">=3.10,<3.14"}
 
 [build-system]
 requires = ["hatchling"]
