@@ -8,9 +8,8 @@ import ray
 from starlette.requests import Request
 from starlette.responses import JSONResponse, StreamingResponse
 from verl.workers.rollout.vllm_rollout.vllm_async_server import AsyncvLLMServer
-from vllm.entrypoints.openai.protocol import ChatCompletionRequest, ErrorResponse
 
-from agentlightning.instrumentation.vllm import ChatCompletionResponsePatched, instrument_vllm
+from agentlightning.instrumentation.vllm import ChatCompletionRequest, ErrorResponse, instrument_vllm
 
 
 def _unwrap_ray_remote(cls):
@@ -39,7 +38,8 @@ class PatchedvLLMServer(_unwrap_ray_remote(AsyncvLLMServer)):
         generator = await self.openai_serving_chat.create_chat_completion(request, raw_request)
 
         if isinstance(generator, ErrorResponse):
-            return JSONResponse(content=generator.model_dump(), status_code=generator.code)
+            error = getattr(generator, "error", generator)
+            return JSONResponse(content=generator.model_dump(), status_code=error.code)
         if request.stream:
             return StreamingResponse(content=generator, media_type="text/event-stream")
         else:
