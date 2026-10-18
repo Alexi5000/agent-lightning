@@ -234,7 +234,10 @@ class EnvAgentModeDaemon:
                 abort(400, description="Invalid API path.")
             if "\\" in path or any(segment in (".", "..") for segment in path.split("/")):
                 abort(400, description="Invalid API path.")
-            target_url = f"http://{target_server}/v1/{quote(path, safe='/')}"
+            encoded_path = quote(path, safe="/")
+            if not re.fullmatch(r"(?:[A-Za-z0-9._~/-]|%[0-9A-Fa-f]{2})+", encoded_path):
+                abort(400, description="Invalid encoded API path.")
+            target_url = f"http://{target_server}/v1/{encoded_path}"
 
             # Copy client request headers, removing the Host header
             headers = {key: value for key, value in request.headers if key.lower() != "host"}
