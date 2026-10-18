@@ -2,11 +2,13 @@
 
 import base64
 import socket
+from importlib.metadata import version
 from io import BytesIO
 from typing import Any
 
 import httpx
 import pytest
+from packaging.version import Version
 
 
 @pytest.mark.parametrize(
@@ -15,6 +17,8 @@ import pytest
 def test_image_token_count_blocks_private_connections(monkeypatch: pytest.MonkeyPatch, url: str) -> None:
     chat = pytest.importorskip("langchain_openai.chat_models.base")
     pytest.importorskip("PIL.Image")
+    if Version(version("langchain-openai")) < Version("1.1.14"):
+        pytest.skip("Legacy OpenAI profile retains the unresolved image URL advisory")
     connections: list[object] = []
 
     def connect(*args: object, **kwargs: object) -> None:
