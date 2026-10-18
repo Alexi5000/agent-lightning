@@ -84,7 +84,7 @@ core-legacy = [
 core-stable = [
   "openai-agents>=0.5.1,<0.6",
   "agentops>=0.4.21",
-  "openai>=2.8.0,<2.9",
+  "openai>=2.26.0,<3",
 ]
 
 # For PyTorch.
@@ -211,6 +211,7 @@ anthropic = [
 langchain = [
   "langgraph>=1.0.0",
   "langchain[openai]>=1.0.0",
+  "langchain-openai>=1.1.14",
   "langchain-community>=0.4.0",
   "langchain-text-splitters>=1.0.0",
 ]
@@ -262,11 +263,10 @@ conflicts = [
     { group = "vllm-0-10-2" },
     { group = "vllm-0-11-0" },
   ],
-  # langchain >= 1.0 requires openai >= 1.109.1 (via langchain-openai),
-  # but torch-legacy uses vllm==0.9.2 which requires openai<=1.90.0
+  # Patched langchain-openai requires OpenAI 2; core-legacy retains OpenAI 1.
   [
     { group = "langchain" },
-    { group = "torch-legacy" },
+    { group = "core-legacy" },
   ],
 ]
 environments = [
