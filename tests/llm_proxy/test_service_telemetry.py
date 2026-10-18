@@ -3,6 +3,7 @@
 from datetime import datetime
 
 import pytest
+from litellm.integrations.opentelemetry import OpenTelemetry
 from litellm.types.services import ServiceLoggerPayload, ServiceTypes
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import SimpleSpanProcessor
@@ -56,7 +57,11 @@ async def test_parented_service_event_retains_span_and_timestamps(as_datetime: b
 
 
 @pytest.mark.asyncio
-async def test_parented_missing_timestamps_still_reports_upstream_error():
+async def test_parented_service_event_propagates_upstream_error(monkeypatch: pytest.MonkeyPatch):
+    async def fail_upstream(*args: object, **kwargs: object) -> None:
+        raise AttributeError("upstream timestamp failure")
+
+    monkeypatch.setattr(OpenTelemetry, "async_service_success_hook", fail_upstream)
     provider = TracerProvider()
     telemetry = LightningOpenTelemetry.__new__(LightningOpenTelemetry)
     telemetry.tracer = provider.get_tracer("service-test")
