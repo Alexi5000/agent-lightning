@@ -7,11 +7,11 @@ from fastapi.testclient import TestClient
 def make_client() -> TestClient:
     app = FastAPI()
 
-    @app.post("/upload")
     async def upload(label: str = Form(...), document: UploadFile = File(...)) -> dict[str, str]:
         content = await document.read()
         return {"label": label, "filename": document.filename or "", "content": content.decode()}
 
+    app.post("/upload")(upload)
     return TestClient(app)
 
 
