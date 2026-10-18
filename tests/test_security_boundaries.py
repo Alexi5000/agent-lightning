@@ -78,6 +78,16 @@ def test_proxy_http_boundaries(source: str, monkeypatch: pytest.MonkeyPatch) -> 
     response = client.get("/v1/chat/completions")
     assert response.status_code == 400
     assert response.content_type == "application/json"
+    assert response.headers["X-Content-Type-Options"] == "nosniff"
+    backend.return_value = SimpleNamespace(
+        status_code=200,
+        content=b"data: streamed\n\n",
+        raw=SimpleNamespace(headers={"Content-Type": "text/event-stream; charset=utf-8"}),
+    )
+    response = client.get("/v1/chat/completions")
+    assert response.mimetype == "text/event-stream"
+    assert response.data == b"data: streamed\n\n"
+    assert response.headers["X-Content-Type-Options"] == "nosniff"
     backend.side_effect = requests.exceptions.ConnectionError("private backend details")
     response = client.get("/v1/chat/completions")
     assert response.status_code == 502

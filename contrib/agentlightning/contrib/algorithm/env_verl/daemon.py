@@ -259,6 +259,7 @@ class EnvAgentModeDaemon:
                 # Filter out hop-by-hop headers before returning the response
                 excluded_headers = [
                     "content-type",
+                    "x-content-type-options",
                     "content-encoding",
                     "content-length",
                     "transfer-encoding",
@@ -273,7 +274,17 @@ class EnvAgentModeDaemon:
                 response_headers = [
                     (name, value) for name, value in resp.raw.headers.items() if name.lower() not in excluded_headers
                 ]
-                if resp.status_code == 200:
+                response_headers.append(("X-Content-Type-Options", "nosniff"))
+                upstream_type = next(
+                    (
+                        value.split(";", 1)[0].strip().lower()
+                        for name, value in resp.raw.headers.items()
+                        if name.lower() == "content-type"
+                    ),
+                    "application/json",
+                )
+                content_type = "text/event-stream" if upstream_type == "text/event-stream" else "application/json"
+                if resp.status_code == 200 and content_type == "application/json":
                     # NOTE: from Zhiyuan's code.
                     # https://github.com/hzy46/verl_agent_mode/blob/2db65ea9858f645a914120357412a7540f8bd82d/verl/trainer/ppo/ray_trainer.py#L692-L711
                     # request_json = json.loads(request.get_data().decode("utf-8"))
@@ -297,9 +308,9 @@ class EnvAgentModeDaemon:
                         replaced_return_content,
                         status=resp.status_code,
                         headers=response_headers,
-                        content_type="application/json",
+                        content_type=content_type,
                     )
-                return Response(resp.content, resp.status_code, response_headers, content_type="application/json")
+                return Response(resp.content, resp.status_code, response_headers, content_type=content_type)
             except requests.exceptions.RequestException:
                 abort(502, description="Backend request failed.")
 
