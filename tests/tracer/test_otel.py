@@ -10,7 +10,7 @@ import pickle
 import threading
 import time
 from multiprocessing.connection import Connection
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, cast
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -619,6 +619,8 @@ def test_otel_tracer_captures_reward_from_emit_reward():
 
 
 def test_span_conversion_omits_null_attributes_and_preserves_falsy_values() -> None:
-    source = ReadableSpan(name="nullable", attributes={"missing": None, "count": 0, "enabled": False, "text": ""})
+    source = ReadableSpan(
+        name="nullable", attributes=cast(Any, {"missing": None, "count": 0, "enabled": False, "text": ""})
+    )
     converted = Span.from_opentelemetry(source, "rollout", "attempt", 0)
     assert converted.attributes == {"count": 0, "enabled": False, "text": ""}

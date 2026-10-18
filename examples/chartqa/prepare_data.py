@@ -3,10 +3,10 @@
 """Prepare ChartQA dataset from HuggingFace for training."""
 
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict, List, cast
 
 import pandas as pd
-from datasets import load_dataset  # pyright: ignore[reportUnknownVariableType]
+from datasets import DatasetDict, load_dataset  # pyright: ignore[reportUnknownVariableType]
 
 
 def prepare_chartqa():
@@ -16,11 +16,14 @@ def prepare_chartqa():
     images_dir.mkdir(parents=True, exist_ok=True)
 
     dataset = load_dataset("HuggingFaceM4/ChartQA")
+    if not isinstance(dataset, DatasetDict):
+        raise TypeError("ChartQA requires a dataset with named train and test splits")
 
     for split in ["train", "test"]:
         tasks: List[Dict[str, Any]] = []
         dataset_length = len(dataset[split])  # type: ignore
-        for idx, item in enumerate(dataset[split]):  # pyright: ignore[reportUnknownArgumentType]
+        for idx, row in enumerate(dataset[split]):  # pyright: ignore[reportUnknownArgumentType]
+            item = cast(Dict[str, Any], row)
             if idx % 1000 == 0:
                 print(f"Processing {split} item {idx} (out of {dataset_length})")
             image_filename = f"{split}_{idx:06d}.png"
