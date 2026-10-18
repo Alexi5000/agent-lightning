@@ -10,7 +10,7 @@ import time
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
-from unittest.mock import Mock
+from unittest.mock import AsyncMock, Mock
 from urllib.parse import quote, urlsplit
 
 import pytest
@@ -113,7 +113,7 @@ def test_browser_security_boundaries() -> None:
     subprocess.run(["node", str(ROOT / "scripts/test_browser_security.cjs")], check=True, cwd=ROOT)
 
 
-def test_store_error_keeps_traceback_server_side() -> None:
+def test_store_error_keeps_traceback_server_side(monkeypatch: pytest.MonkeyPatch) -> None:
     from fastapi.testclient import TestClient
 
     from agentlightning.store.client_server import LightningStoreServer
@@ -122,12 +122,9 @@ def test_store_error_keeps_traceback_server_side() -> None:
     server = LightningStoreServer(InMemoryLightningStore(), "127.0.0.1", 4747)
     assert server.app is not None
 
-    async def error_route() -> None:
-        raise RuntimeError("private path and secret")
-
-    server.app.add_api_route("/v1/agl/security-error", error_route)
+    monkeypatch.setattr(server, "statistics", AsyncMock(side_effect=RuntimeError("private path and secret")))
     with TestClient(server.app) as client:
-        response = client.get("/v1/agl/security-error")
+        response = client.get("/v1/agl/statistics")
     assert response.status_code == 500
     assert response.json() == {"detail": "Internal server error", "error_type": "RuntimeError"}
     assert "private path" not in response.text
