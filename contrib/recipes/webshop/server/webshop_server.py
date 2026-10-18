@@ -110,7 +110,7 @@ class SessionManager:
         with self.lock:
             self.sessions[sid] = session
 
-        logger.info(f"Created session {sid} with {self.num_products} products")
+        logger.info("Created session %r with %d products", sid, self.num_products)
         return session
 
     def get_session(self, session_id: str) -> Optional[Session]:
@@ -135,7 +135,7 @@ class SessionManager:
             if hasattr(session.env, "get_instruction_text"):
                 session.instruction = session.env.get_instruction_text()
 
-            logger.info(f"Reset existing session {session_id}")
+            logger.info("Reset existing session %r", session_id)
             return session
         else:
             # Create new session
@@ -203,9 +203,9 @@ def reset():
 
         return jsonify({"session_id": session.id, "observation": obs, "done": False, "reward": 0})
 
-    except Exception as e:
+    except Exception:
         logger.exception("Error in /reset")
-        return jsonify({"error": str(e)}), 500
+        return jsonify({"error": "Internal server error"}), 500
 
 
 @app.route("/step", methods=["POST"])
@@ -247,7 +247,7 @@ def step():
         # Execute action in gym environment
         obs, reward, done, info = session.env.step(action)
 
-        logger.info(f"Session {session_id}: action={action}, reward={reward}, done={done}")
+        logger.info("Session %r: action=%r, reward=%r, done=%r", session_id, action, reward, done)
 
         return jsonify(
             {
@@ -259,9 +259,9 @@ def step():
             }
         )
 
-    except Exception as e:
+    except Exception:
         logger.exception("Error in /step")
-        return jsonify({"error": str(e)}), 500
+        return jsonify({"error": "Internal server error"}), 500
 
 
 @app.route("/health", methods=["GET"])

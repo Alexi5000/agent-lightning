@@ -9,6 +9,7 @@ import socket
 import threading
 import time
 import uuid
+from urllib.parse import quote
 
 logger = logging.getLogger(__name__)
 from collections import defaultdict
@@ -101,7 +102,7 @@ def get_right_padded_ids_and_attention_mask(
 
 def _find_available_port() -> int:
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-        s.bind(("", 0))
+        s.bind(("127.0.0.1", 0))
         return s.getsockname()[1]
 
 
@@ -228,7 +229,9 @@ class EnvAgentModeDaemon:
 
             # Randomly choose a backend server for load balancing
             target_server = random.choice(self.backend_llm_server_addresses)
-            target_url = f"http://{target_server}/v1/{path}"
+            if "\\" in path or any(segment in (".", "..") for segment in path.split("/")):
+                abort(400, description="Invalid API path.")
+            target_url = f"http://{target_server}/v1/{quote(path, safe='/')}"
 
             # Copy client request headers, removing the Host header
             headers = {key: value for key, value in request.headers if key.lower() != "host"}
@@ -238,7 +241,7 @@ class EnvAgentModeDaemon:
             current_time = time.time()
             num_requests += 1
             if current_time - last_request_time > 60 or num_requests == 1 or num_requests % 100 == 0:
-                print(f"Proxying {request.method} request to {target_server}. Request data: {request.get_data()}")
+                print(f"Proxying {request.method} request to {target_server}. Body size: {len(request.get_data())}")
             last_request_time = current_time
 
             try:
@@ -255,6 +258,7 @@ class EnvAgentModeDaemon:
                 )
                 # Filter out hop-by-hop headers before returning the response
                 excluded_headers = [
+                    "content-type",
                     "content-encoding",
                     "content-length",
                     "transfer-encoding",
@@ -289,10 +293,15 @@ class EnvAgentModeDaemon:
                     # response_json['prompt_token_ids'] = prompt_ids
                     # response_json['response_token_ids'] = [response_ids]
                     replaced_return_content = json.dumps(response_json).encode("utf-8")
-                    return Response(replaced_return_content, status=resp.status_code, headers=response_headers)
-                return Response(resp.content, resp.status_code, response_headers)
-            except requests.exceptions.RequestException as e:
-                abort(500, description=f"Error proxying request: {e}")
+                    return Response(
+                        replaced_return_content,
+                        status=resp.status_code,
+                        headers=response_headers,
+                        content_type="application/json",
+                    )
+                return Response(resp.content, resp.status_code, response_headers, content_type="application/json")
+            except requests.exceptions.RequestException:
+                abort(502, description="Backend request failed.")
 
         def run_app():
             app.run(host="0.0.0.0", port=self.proxy_port, threaded=True, debug=False)

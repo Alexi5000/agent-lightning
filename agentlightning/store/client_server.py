@@ -8,7 +8,6 @@ import os
 import re
 import threading
 import time
-import traceback
 from pathlib import Path
 from typing import (
     Any,
@@ -465,7 +464,6 @@ class LightningStoreServer(LightningStore):
                     payload = {
                         "detail": "Internal server error",
                         "error_type": type(exc).__name__,
-                        "traceback": traceback.format_exc(),
                     }
                     # 500 so clients can decide to retry
                     return JSONResponse(status_code=500, content=payload)
