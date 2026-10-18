@@ -44,6 +44,10 @@ The lock overrides datasets' older fsspec cap with fsspec 2026.6.0 and updates s
 
 The lock overrides legacy vLLM xgrammar pins with xgrammar 0.1.32. Offline CPU tests cover grammar compilation, token masks, rollback/reset, JSON/regex output, both structural-tag APIs, and rejection of excessively nested untrusted grammars without a native crash. The slow/latest lint jobs run these tests with the locked training stack; full GPU inference remains unvalidated.
 
+The stable profile uses patched LangChain image URL handling and the OpenAI 2.26 SDK. The legacy profile retains OpenAI 1 and its older LangChain integration, including its unresolved image URL advisory.
+
+LiteLLM is bounded below 1.104: that release requires proxy master-key authentication, which needs a coordinated credential lifecycle migration for Lightning resources and callers. Authentication enforcement is not disabled. Existing legacy LiteLLM security findings remain unresolved.
+
 The fork runs CPU validation in `tests.yml`. Upstream publishing, paid-service examples, and GPU workflows remain disabled until their infrastructure and destinations are configured.
 
 ```bash
