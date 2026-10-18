@@ -110,7 +110,9 @@ class SessionManager:
         with self.lock:
             self.sessions[sid] = session
 
-        logger.info("Created session %r with %d products", sid, self.num_products)
+        logger.info(
+            "Created session %s with %d products", sid.replace("\r", "\\r").replace("\n", "\\n"), self.num_products
+        )
         return session
 
     def get_session(self, session_id: str) -> Optional[Session]:
@@ -135,7 +137,7 @@ class SessionManager:
             if hasattr(session.env, "get_instruction_text"):
                 session.instruction = session.env.get_instruction_text()
 
-            logger.info("Reset existing session %r", session_id)
+            logger.info("Reset existing session %s", session_id.replace("\r", "\\r").replace("\n", "\\n"))
             return session
         else:
             # Create new session
@@ -247,7 +249,10 @@ def step():
         # Execute action in gym environment
         obs, reward, done, info = session.env.step(action)
 
-        logger.info("Session %r: action=%r, reward=%r, done=%r", session_id, action, reward, done)
+        logger.info(
+            "Session %s: action=%s, reward=%s, done=%s",
+            *(str(value).replace("\r", "\\r").replace("\n", "\\n") for value in (session_id, action, reward, done)),
+        )
 
         return jsonify(
             {

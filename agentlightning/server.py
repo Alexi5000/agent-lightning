@@ -166,7 +166,7 @@ class ServerDataStore:
         async with self._results_lock:
             self._processing_tasks.pop(rollout.rollout_id, None)
             self._completed_rollouts[rollout.rollout_id] = rollout
-            logger.info("Rollout received and stored: %r", rollout.rollout_id)
+            logger.info("Rollout received and stored: %s", rollout.rollout_id.replace("\r", "\\r").replace("\n", "\\n"))
 
     async def retrieve_rollout(self, rollout_id: str) -> Optional[RolloutLegacy]:
         """Retrieve and remove a stored rollout by identifier.
@@ -314,7 +314,9 @@ class AgentLightningServer:
             resources_update = await self._store.get_resources_by_id(resource_id)
             if not resources_update:
                 raise HTTPException(status_code=404, detail=f"Resource ID '{resource_id}' not found.")
-            logger.debug("Serving resources for ID %r to a client.", resource_id)
+            logger.debug(
+                "Serving resources for ID %s to a client.", resource_id.replace("\r", "\\r").replace("\n", "\\n")
+            )
             return resources_update
 
         @self._app.post("/rollout", response_model=GenericResponse)
