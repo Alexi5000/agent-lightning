@@ -66,7 +66,7 @@ export function createWebShopAgent(
     agentConfig.experimental_telemetry = options.telemetry;
   }
 
-  return new ToolLoopAgent(agentConfig as Parameters<typeof ToolLoopAgent>[0]);
+  return new ToolLoopAgent(agentConfig as ConstructorParameters<typeof ToolLoopAgent>[0]);
 }
 
 /**

@@ -30,6 +30,10 @@ Read more on our [documentation website](https://microsoft.github.io/agent-light
 
 ## ⚡ Installation
 
+This fork supports Python 3.10–3.13; the optional Tinker group requires Python 3.11 or later. Use the checked-in `uv.lock` for reproducible development. Compatibility bounds retain the OpenTelemetry, Weave, MCP, and OpenAI Agents APIs used by this release. These bounds are not a claim that every optional training dependency is free of security advisories.
+
+The fork runs CPU validation in `tests.yml`. Upstream publishing, paid-service examples, and GPU workflows remain disabled until their infrastructure and destinations are configured.
+
 ```bash
 pip install agentlightning
 ```

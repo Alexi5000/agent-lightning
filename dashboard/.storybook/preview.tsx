@@ -55,7 +55,7 @@ export const globalTypes = {
     description: 'Mantine color scheme',
     defaultValue: 'light',
     toolbar: {
-      icon: 'mirror',
+      icon: 'mirror' as const,
       items: [
         { value: 'light', title: 'Light' },
         { value: 'dark', title: 'Dark' },

@@ -46,7 +46,7 @@ interface RunnerOptions {
 interface WebShopTask {
   task_id: string;
   instruction: string;
-  target_attributes?: Record<string, unknown>;
+  target_attributes?: Record<string, string | number | undefined>;
 }
 
 /**
@@ -118,7 +118,14 @@ async function runRollout(
 ): Promise<void> {
   const { rollout_id, attempt } = rollout;
   const { attempt_id } = attempt;
-  const task = rollout.input as WebShopTask;
+  const input: unknown = rollout.input;
+  if (!input || typeof input !== "object" || !("task_id" in input) || typeof input.task_id !== "string" || !("instruction" in input) || typeof input.instruction !== "string") {
+    throw new Error("WebShop rollout requires string task_id and instruction fields");
+  }
+  if ("target_attributes" in input && input.target_attributes !== undefined && (!input.target_attributes || typeof input.target_attributes !== "object" || Object.values(input.target_attributes).some((value) => value !== undefined && typeof value !== "string" && typeof value !== "number"))) {
+    throw new Error("WebShop target_attributes must contain string or number values");
+  }
+  const task = input as WebShopTask;
 
   console.log(`[TASK] ${options.workerId} | rollout=${rollout_id.slice(0, 8)}... | ${task.instruction.slice(0, 60)}...`);
 
