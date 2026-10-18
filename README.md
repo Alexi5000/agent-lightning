@@ -34,6 +34,8 @@ This fork supports Python 3.10–3.13; the optional Tinker group requires Python
 
 The lock overrides legacy LiteLLM pins to use python-multipart 0.0.32 or newer within the 0.0 series. Offline FastAPI upload, malformed-boundary, and missing-file regressions cover the older HTTP stack against this security update.
 
+The Linux lock also overrides the legacy LiteLLM cryptography pin with cryptography 50.0.2. Offline RSA JWT verification through both certificates and JWKs, signature rejection, and license-signature checks exercise the actual LiteLLM consumers. CI repeats these checks against LiteLLM 1.74.15; this does not validate GPU training or live provider integrations.
+
 The fork runs CPU validation in `tests.yml`. Upstream publishing, paid-service examples, and GPU workflows remain disabled until their infrastructure and destinations are configured.
 
 ```bash

@@ -213,6 +213,12 @@ jobs:
         env:
           PYTEST_ADDOPTS: "--color=yes"
 
+      - name: Verify legacy LiteLLM crypto compatibility
+        if: matrix.env.setup-script == 'legacy' && matrix.mark.id == 'others'
+        run: |
+          uv pip install --no-deps litellm==1.74.15
+          uv run --no-sync pytest -v tests/test_crypto_compat.py
+
   test-js:
     name: Test (JavaScript)
     runs-on: ubuntu-latest
