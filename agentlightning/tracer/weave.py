@@ -27,7 +27,6 @@ from weave.trace.call import Call
 from weave.trace.settings import UserSettings
 from weave.trace.weave_client import WeaveClient
 from weave.trace_server import trace_server_interface as tsi
-from weave.wandb_interface.context import set_wandb_api_context
 
 from agentlightning.instrumentation.weave import InMemoryWeaveTraceServer, instrument_weave, uninstrument_weave
 from agentlightning.semconv import LightningResourceAttributes, LightningSpanAttributes
@@ -238,7 +237,7 @@ class WeaveTracer(Tracer):
         super().__init__()
         self.project_name = project_name
         self.instrument_managed = instrument_managed
-        self.weave_user_settings = weave_user_settings or UserSettings(use_server_cache=False)
+        self.weave_user_settings = weave_user_settings or UserSettings(use_server_cache=False, use_otel_v2=False)
 
         self._store: Optional[LightningStore] = None
         self._server = WeaveTracerManagedTraceServer(
@@ -275,13 +274,6 @@ class WeaveTracer(Tracer):
         # Optionally patch network calls to bypass real Weave/W&B endpoints
         if self.instrument_managed:
             self.instrument(worker_id)
-
-        # If WANDB_API_KEY is not set, we need to initialize Weave with a hack
-        if not os.getenv("WANDB_API_KEY"):
-            logger.info("WANDB_API_KEY is not set. Initializing Weave a mock context.")
-            set_wandb_api_context("agl", api_key=None, headers=None, cookies=None)
-        else:
-            logger.debug("WANDB_API_KEY is set. Weave will be initialized automatically.")
 
         weave_client = weave.get_client()
         if self.project_name is None:

@@ -259,3 +259,25 @@ async def test_weave_trace_call_to_span():
     assert child_span.attributes["agentlightning.operation.input.child_input"] == "x"
     assert child_span.attributes["agentlightning.operation.output.child_output"] == 42
     assert child_span.parent_id == "span-1"
+
+
+@pytest.mark.weave
+def test_managed_weave_restores_authentication_and_exporter():
+    import weave.trace.weave_init as weave_init
+
+    from agentlightning.instrumentation.weave import InMemoryWeaveTraceServer, instrument_weave, uninstrument_weave
+
+    original_auth = weave_init.get_wandb_auth_context
+    original_exporter = weave_init._setup_conversation_tracing
+    original_server = weave_init.init_weave_get_server
+    server = InMemoryWeaveTraceServer()
+    instrument_weave(server)
+    try:
+        assert weave_init.init_weave_get_server(None) is server
+        assert weave_init.get_wandb_auth_context().bearer_token() == "agentlightning-local-trace"
+        assert weave_init._setup_conversation_tracing("local", "test", None) is None
+    finally:
+        uninstrument_weave()
+    assert weave_init.get_wandb_auth_context is original_auth
+    assert weave_init._setup_conversation_tracing is original_exporter
+    assert weave_init.init_weave_get_server is original_server

@@ -10,10 +10,11 @@ from typing import Any, Callable, Dict, Iterator, List
 
 import weave.trace.weave_init
 from pydantic import validate_call
+from weave.shared.service_interface import ServerInfoRes
 from weave.trace_server import trace_server_interface as tsi
 from weave.trace_server.ids import generate_id
 from weave.trace_server_bindings.client_interface import TraceServerClientInterface
-from weave.trace_server_bindings.models import ServerInfoRes
+from weave.wandb_interface.auth import ApiKeyCredentials
 
 logger = logging.getLogger(__name__)
 
@@ -251,12 +252,6 @@ class InMemoryWeaveTraceServer(TraceServerClientInterface):
             payload={},
         )
 
-    # --- Action API ---
-
-    @validate_call
-    def actions_execute_batch(self, req: tsi.ActionsExecuteBatchReq) -> tsi.ActionsExecuteBatchRes:
-        return tsi.ActionsExecuteBatchRes()
-
     # --- Execute LLM API ---
 
     @validate_call
@@ -300,11 +295,6 @@ class InMemoryWeaveTraceServer(TraceServerClientInterface):
     @validate_call
     def evaluation_status(self, req: tsi.EvaluationStatusReq) -> tsi.EvaluationStatusRes:
         return tsi.EvaluationStatusRes(status=tsi.EvaluationStatusNotFound())
-
-    # --- OTEL API ---
-
-    def otel_export(self, req: tsi.OtelExportReq) -> tsi.OtelExportRes:
-        return tsi.OtelExportRes()
 
     # ==========================================
     # Object Interface (V2 APIs)
@@ -470,6 +460,8 @@ class InMemoryWeaveTraceServer(TraceServerClientInterface):
 _original_init_weave_get_server: Callable[..., Any] | None = None
 _original_get_entity_project_from_project_name: Callable[..., Any] | None = None
 _original_get_username: Callable[..., Any] | None = None
+_original_get_wandb_auth_context: Callable[..., Any] | None = None
+_original_setup_conversation_tracing: Callable[..., Any] | None = None
 
 
 def init_weave_get_server_factory(server: InMemoryWeaveTraceServer) -> Callable[..., Any]:
@@ -510,6 +502,11 @@ def instrument_weave(server: InMemoryWeaveTraceServer):
     """Patch the Weave/W&B integration to bypass actual network calls for testing."""
 
     global _original_init_weave_get_server, _original_get_entity_project_from_project_name, _original_get_username
+    global _original_get_wandb_auth_context, _original_setup_conversation_tracing
+    _original_get_wandb_auth_context = weave.trace.weave_init.get_wandb_auth_context
+    _original_setup_conversation_tracing = weave.trace.weave_init._setup_conversation_tracing
+    weave.trace.weave_init.get_wandb_auth_context = lambda: ApiKeyCredentials("agentlightning-local-trace")
+    weave.trace.weave_init._setup_conversation_tracing = lambda *args, **kwargs: None
     _original_init_weave_get_server = weave.trace.weave_init.init_weave_get_server
     _original_get_entity_project_from_project_name = weave.trace.weave_init.get_entity_project_from_project_name
     _original_get_username = weave.trace.weave_init.get_username
@@ -521,6 +518,14 @@ def instrument_weave(server: InMemoryWeaveTraceServer):
 def uninstrument_weave():
     """Restore the original Weave/W&B integration methods and HTTP requests."""
     global _original_init_weave_get_server, _original_get_entity_project_from_project_name, _original_get_username
+    global _original_get_wandb_auth_context, _original_setup_conversation_tracing
+
+    if _original_get_wandb_auth_context is not None:
+        weave.trace.weave_init.get_wandb_auth_context = _original_get_wandb_auth_context
+        _original_get_wandb_auth_context = None
+    if _original_setup_conversation_tracing is not None:
+        weave.trace.weave_init._setup_conversation_tracing = _original_setup_conversation_tracing
+        _original_setup_conversation_tracing = None
 
     if _original_init_weave_get_server is not None:
         weave.trace.weave_init.init_weave_get_server = _original_init_weave_get_server
