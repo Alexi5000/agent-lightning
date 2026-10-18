@@ -39,6 +39,7 @@ from fastapi.responses import StreamingResponse
 from litellm.integrations.custom_logger import CustomLogger
 from litellm.integrations.opentelemetry import OpenTelemetry, OpenTelemetryConfig
 from litellm.proxy.proxy_server import app, save_worker_config  # pyright: ignore[reportUnknownVariableType]
+from litellm.types.services import ServiceLoggerPayload
 from litellm.types.utils import CallTypes
 from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
 from opentelemetry.sdk.resources import Resource
@@ -514,6 +515,25 @@ class LightningOpenTelemetry(OpenTelemetry):
             logger.error("Tracer is already initialized. OpenTelemetry may not work as expected.")
 
         super().__init__(config=config)  # pyright: ignore[reportUnknownMemberType]
+
+    async def async_service_success_hook(
+        self,
+        payload: ServiceLoggerPayload,
+        parent_otel_span: trace_api.Span | None = None,
+        start_time: datetime | float | None = None,
+        end_time: datetime | float | None = None,
+        event_metadata: dict[str, Any] | None = None,
+    ) -> None:
+        """Preserve parentless V1 no-op behavior before upstream timestamp conversion."""
+        if parent_otel_span is None:
+            return
+        await super().async_service_success_hook(  # pyright: ignore[reportUnknownMemberType]
+            payload=payload,
+            parent_otel_span=parent_otel_span,
+            start_time=start_time,
+            end_time=end_time,
+            event_metadata=event_metadata,
+        )
 
     async def async_pre_call_deployment_hook(
         self, kwargs: Dict[str, Any], call_type: Optional[CallTypes] = None
