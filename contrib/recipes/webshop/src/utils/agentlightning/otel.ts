@@ -15,7 +15,7 @@ import {
   type Tracer,
   type Context,
 } from '@opentelemetry/api';
-import { Resource } from '@opentelemetry/resources';
+import { resourceFromAttributes } from '@opentelemetry/resources';
 import {
   BasicTracerProvider,
   SimpleSpanProcessor,
@@ -87,13 +87,11 @@ export function createRolloutTracer(config: TracerConfig): {
   console.log(`[OTLP] Creating tracer for rollout=${config.rolloutId.slice(0, 12)}..., endpoint=${config.otlpEndpoint}`);
 
   // Create Resource with rollout metadata (Agent Lightning convention)
-  const resource = new Resource({
+  const resource = resourceFromAttributes({
     [ATTR_SERVICE_NAME]: config.serviceName,
     'agentlightning.rollout_id': config.rolloutId,
     'agentlightning.attempt_id': config.attemptId,
   });
-
-  const provider = new BasicTracerProvider({ resource });
 
   // Configure OTLP exporter to send to Agent Lightning Store
   const exporter = new OTLPTraceExporter({
@@ -101,9 +99,10 @@ export function createRolloutTracer(config: TracerConfig): {
   });
 
   const simpleProcessor = new SimpleSpanProcessor(exporter);
-  provider.addSpanProcessor(
-    new RolloutSpanProcessor(simpleProcessor, config.rolloutId, config.attemptId)
-  );
+  const provider = new BasicTracerProvider({
+    resource,
+    spanProcessors: [new RolloutSpanProcessor(simpleProcessor, config.rolloutId, config.attemptId)],
+  });
 
   const tracer = provider.getTracer(config.serviceName);
   return { tracer, provider };

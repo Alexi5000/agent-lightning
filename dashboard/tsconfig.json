@@ -11,7 +11,7 @@
     "strict": true,
     "forceConsistentCasingInFileNames": true,
     "module": "ESNext",
-    "moduleResolution": "Node",
+    "moduleResolution": "Bundler",
     "resolveJsonModule": true,
     "isolatedModules": true,
     "noEmit": true,
@@ -21,5 +21,5 @@
       "@test-utils": ["./test-utils"]
     }
   },
-  "include": ["src", "public", "test-utils", ".storybook/main.ts", ".storybook/preview.tsx", ".storybook/modes.ts", ".storybook/constants.ts", ".storybook/vitest.setup.ts"]
+  "include": ["src", "public", "test-utils", ".storybook/main.ts", ".storybook/preview.tsx", ".storybook/modes.ts", ".storybook/constants.ts"]
 }
