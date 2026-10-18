@@ -233,6 +233,12 @@ jobs:
         env:
           PYTEST_ADDOPTS: "--color=yes"
 
+      - name: Verify stable LangChain security compatibility
+        if: matrix.env.setup-script != 'legacy' && matrix.mark.id == 'others'
+        run: |
+          uv run --no-sync python -c "import langchain_openai; from PIL import Image"
+          uv run --no-sync pytest -v tests/test_langchain_openai_security.py
+
       - name: Verify legacy LiteLLM security compatibility
         if: matrix.env.setup-script == 'legacy' && matrix.mark.id == 'others'
         run: |
