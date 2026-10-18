@@ -5,6 +5,7 @@
 import ast
 import json
 import random
+import re
 import subprocess
 import time
 from pathlib import Path
@@ -46,6 +47,7 @@ def test_proxy_http_boundaries(source: str, monkeypatch: pytest.MonkeyPatch) -> 
         "request": request,
         "requests": requests,
         "random": random,
+        "re": re,
         "time": time,
         "json": json,
         "quote": quote,
@@ -55,10 +57,21 @@ def test_proxy_http_boundaries(source: str, monkeypatch: pytest.MonkeyPatch) -> 
     owner = SimpleNamespace(backend_llm_server_addresses=["127.0.0.1:8001"], llm_timeout_seconds=5, proxy_port=0)
     load_method(ROOT / source, "_start_proxy_server_v0", namespace)(owner)
     client = app.test_client()
-    for path in ["../admin", "%2e%2e/admin", "models/../admin", "models%5c..%5cadmin"]:
+    for path in [
+        "../admin",
+        "%2e%2e/admin",
+        "models/../admin",
+        "models%5c..%5cadmin",
+        "models/a%00b",
+        "models/a%0db",
+        "models/a%7fb",
+    ]:
         backend.reset_mock()
         assert client.get("/v1/" + path).status_code == 400
         backend.assert_not_called()
+    backend.reset_mock()
+    assert client.get("/v1/models/a%0ab").status_code == 404
+    backend.assert_not_called()
     response = client.post("/v1/chat/completions?version=1", json={"model": "example"})
     assert response.status_code == 200
     assert response.json == {"ok": True}
@@ -128,3 +141,23 @@ def test_store_error_keeps_traceback_server_side(monkeypatch: pytest.MonkeyPatch
     assert response.status_code == 500
     assert response.json() == {"detail": "Internal server error", "error_type": "RuntimeError"}
     assert "private path" not in response.text
+
+
+def test_command_input_does_not_enter_logs() -> None:
+    logs = Mock()
+    owner = SimpleNamespace(
+        output_queue=SimpleNamespace(empty=lambda: True),
+        _send_bytes=Mock(),
+        _read_raw_output=Mock(return_value=("result", SimpleNamespace(exit_code=0))),
+        _log_command_result=Mock(),
+    )
+    method = load_method(
+        ROOT / "examples/claude_code/swebench_utils/docker_runtime.py",
+        "send_command",
+        {"CommandResult": SimpleNamespace, "claude_code_logger": logs},
+    )
+    command = "export PASSWORD='private value'; echo ready"
+    result = method(owner, command)
+    assert "private value" not in str(logs.mock_calls)
+    owner._send_bytes.assert_called_once_with((command + "\n").encode())
+    assert result.output == "result"

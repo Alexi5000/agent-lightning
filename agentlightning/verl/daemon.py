@@ -4,6 +4,7 @@ import asyncio
 import json
 import os
 import random
+import re
 import socket
 import threading
 import time
@@ -378,6 +379,8 @@ class AgentModeDaemon:
 
             # Randomly choose a backend server for load balancing
             target_server = random.choice(self.backend_llm_server_addresses)
+            if not re.fullmatch(r"[^\x00-\x1f\x7f]+", path):
+                abort(400, description="Invalid API path.")
             if "\\" in path or any(segment in (".", "..") for segment in path.split("/")):
                 abort(400, description="Invalid API path.")
             target_url = f"http://{target_server}/v1/{quote(path, safe='/')}"
