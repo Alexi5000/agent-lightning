@@ -279,16 +279,8 @@ class Runtime:
         raise TypeError(f"Don't know how to write to {type(self.sock).__name__}")
 
     def _log_command_result(self, result: CommandResult) -> None:
-        claude_code_logger.debug("Docker runtime command finished with metadata: %s", result.metadata)
-        if len(result.output) > 2048:
-            logged_output = result.output[:1024] + "\n(... stripped due to length ...)\n" + result.output[-1024:]
-        else:
-            logged_output = result.output
-        claude_code_logger.debug(
-            "Docker runtime command finished with output (length = %d):\n%s", len(result.output), logged_output
-        )
-        # Output to the evaluation logger simultaneously
-        self.logger(text=logged_output)
+        claude_code_logger.debug("Docker runtime command finished; output length = %d", len(result.output))
+        self.logger(text=f"Docker runtime command finished; output length = {len(result.output)}")
 
     def send_command(self, command: str, timeout: float = 20 * 60) -> CommandResult:
         # Redact sensitive API keys from the command before logging
