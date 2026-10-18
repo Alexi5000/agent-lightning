@@ -73,3 +73,26 @@ def test_deeply_nested_untrusted_grammar_rejected_without_crash() -> None:
     assert result.returncode == 1
     assert "RuntimeError" in result.stderr
     assert "nest" in result.stderr.lower()
+
+
+def test_vllm_huggingface_tokenizer_conversion() -> None:
+    xgr = pytest.importorskip("xgrammar")
+    tokenizers = pytest.importorskip("tokenizers")
+    transformers = pytest.importorskip("transformers")
+    torch = pytest.importorskip("torch")
+    backend = tokenizers.Tokenizer(
+        tokenizers.models.WordLevel({"<unk>": 0, "a": 1, "b": 2, "<eos>": 3}, unk_token="<unk>")
+    )
+    tokenizer = transformers.PreTrainedTokenizerFast(tokenizer_object=backend, unk_token="<unk>", eos_token="<eos>")
+    info = xgr.TokenizerInfo.from_huggingface(tokenizer, vocab_size=len(tokenizer))
+    compiler = xgr.GrammarCompiler(info, max_threads=1)
+    matcher = xgr.GrammarMatcher(compiler.compile_grammar('root ::= "ab"'))
+    bitmask = xgr.allocate_token_bitmask(1, len(tokenizer))
+    matcher.fill_next_token_bitmask(bitmask, 0)
+    logits = torch.zeros(1, len(tokenizer))
+    xgr.apply_token_bitmask_inplace(logits, bitmask)
+    assert torch.where(torch.isfinite(logits))[1].tolist() == [1]
+    assert matcher.accept_token(1)
+    assert matcher.accept_token(2)
+    assert matcher.accept_token(tokenizer.eos_token_id)
+    assert matcher.is_terminated()
