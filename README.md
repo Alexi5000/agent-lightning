@@ -40,6 +40,8 @@ The lock overrides CrewAI's legacy json-repair pin with json-repair 0.60.1. Offl
 
 The lock overrides legacy LiteLLM HTTP pins with FastAPI 0.140.x, Starlette 1.3.x, and fastapi-sso 0.23.x. FastAPI's standard extras remain installed. CPU tests exercise store HTTP requests, proxy start/restart and completion streaming, and an offline Google SSO authorization-code exchange with missing or forged state rejected before token exchange. Live identity providers and GPU serving still require deployment-specific validation.
 
+The lock overrides datasets' older fsspec cap with fsspec 2026.6.0 and updates s3fs to its matching release. Offline regressions verify rejection of Python-object access in all three reference-template paths, legitimate byte-range references, and datasets 4.8.5 local Parquet and memory-filesystem round trips. Training package versions remain unchanged; this does not validate remote object storage or GPU training.
+
 The fork runs CPU validation in `tests.yml`. Upstream publishing, paid-service examples, and GPU workflows remain disabled until their infrastructure and destinations are configured.
 
 ```bash
