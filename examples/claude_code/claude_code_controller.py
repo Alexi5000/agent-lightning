@@ -147,14 +147,16 @@ class ClaudeController:
             time_limit: The execution time limit in minutes.
         """
         # Ensure Python 3.12 is available
-        self.container.send_command(f"""
+        self.container.send_command(
+            f"""
 if ! command -v python3 &> /dev/null; then
     echo "Python is not installed. Installing Python 3.12..."
     sudo apt-get update -qq && sudo apt-get install -y -qq python3.12
 else
     echo "Python is already installed."
 fi
-""")
+"""
+        )
         self.container.send_command("python3 -m pip install claude-code-sdk")
 
         # Load and fill the execution template
