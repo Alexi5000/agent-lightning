@@ -32,6 +32,8 @@ Read more on our [documentation website](https://microsoft.github.io/agent-light
 
 This fork supports Python 3.10–3.13; the optional Tinker group requires Python 3.11 or later. Use the checked-in `uv.lock` for reproducible development. Compatibility bounds retain the OpenTelemetry, Weave, MCP, and OpenAI Agents APIs used by this release. These bounds are not a claim that every optional training dependency is free of security advisories.
 
+The lock overrides legacy LiteLLM pins to use python-multipart 0.0.32 or newer within the 0.0 series. Offline FastAPI upload, malformed-boundary, and missing-file regressions cover the older HTTP stack against this security update.
+
 The fork runs CPU validation in `tests.yml`. Upstream publishing, paid-service examples, and GPU workflows remain disabled until their infrastructure and destinations are configured.
 
 ```bash
