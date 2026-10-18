@@ -279,6 +279,7 @@ dependency-metadata = [
 ]
 
 override-dependencies = [
+  "json-repair>=0.60.1,<0.61",
   "cryptography>=50.0.2,<51",
   "python-multipart>=0.0.32,<0.1",
   "pydantic>=2.11,<2.13",
