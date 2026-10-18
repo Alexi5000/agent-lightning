@@ -127,6 +127,21 @@ jobs:
           path: site/
           compression-level: 6
 
+  filesystem-compat:
+    name: Filesystem security compatibility
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+      - uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+          python-version: '3.12'
+      - name: Sync locked dataset dependencies
+        run: uv sync --frozen --no-default-groups --group dev --group image
+      - name: Verify template sandbox and dataset storage
+        run: uv run --no-sync pytest -v tests/test_fsspec_compat.py
+
   test:
     strategy:
       matrix:
