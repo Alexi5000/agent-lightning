@@ -36,6 +36,8 @@ The lock overrides legacy LiteLLM pins to use python-multipart 0.0.32 or newer w
 
 The Linux lock also overrides the legacy LiteLLM cryptography pin with cryptography 50.0.2. Offline RSA JWT verification through both certificates and JWKs, signature rejection, and license-signature checks exercise the actual LiteLLM consumers. CI repeats these checks against LiteLLM 1.74.15; this does not validate GPU training or live provider integrations.
 
+The lock overrides CrewAI's legacy json-repair pin with json-repair 0.60.1. Offline checks cover CrewAI tool-argument parsing, final answers, and rejection of circular JSON Schema references within a bounded subprocess. This does not validate live CrewAI provider calls.
+
 The fork runs CPU validation in `tests.yml`. Upstream publishing, paid-service examples, and GPU workflows remain disabled until their infrastructure and destinations are configured.
 
 ```bash
