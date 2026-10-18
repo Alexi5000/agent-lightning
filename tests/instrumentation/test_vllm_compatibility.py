@@ -1,3 +1,5 @@
+# Copyright (c) Microsoft. All rights reserved.
+
 """CPU unit contracts for the legacy and split vLLM serving interfaces."""
 
 import importlib
