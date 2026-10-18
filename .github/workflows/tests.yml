@@ -55,6 +55,11 @@ jobs:
       # This pre-commit skips JavaScript on purpose.
       - name: Run pre-commit
         uses: pre-commit/action@v3.0.1
+      - name: Verify structured-output compatibility
+        run: |
+          uv run --no-sync python -c "import xgrammar, torch"
+          uv run --no-sync pytest -v tests/test_xgrammar_compat.py
+        if: matrix.setup != 'fast'
       - name: Check Python headers
         run: uv run --locked --no-sync scripts/check_headers.py
         if: matrix.setup == 'fast'

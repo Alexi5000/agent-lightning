@@ -42,6 +42,8 @@ The lock overrides legacy LiteLLM HTTP pins with FastAPI 0.140.x, Starlette 1.3.
 
 The lock overrides datasets' older fsspec cap with fsspec 2026.6.0 and updates s3fs to its matching release. Offline regressions verify rejection of Python-object access in all three reference-template paths, legitimate byte-range references, and datasets 4.8.5 local Parquet and memory-filesystem round trips. Training package versions remain unchanged; this does not validate remote object storage or GPU training.
 
+The lock overrides legacy vLLM xgrammar pins with xgrammar 0.1.32. Offline CPU tests cover grammar compilation, token masks, rollback/reset, JSON/regex output, both structural-tag APIs, and rejection of excessively nested untrusted grammars without a native crash. The slow/latest lint jobs run these tests with the locked training stack; full GPU inference remains unvalidated.
+
 The fork runs CPU validation in `tests.yml`. Upstream publishing, paid-service examples, and GPU workflows remain disabled until their infrastructure and destinations are configured.
 
 ```bash
