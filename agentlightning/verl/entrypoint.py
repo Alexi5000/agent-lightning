@@ -89,7 +89,7 @@ def run_ppo(
 
 
 @ray.remote(num_cpus=1)  # please make sure main_task is not scheduled on head
-class TaskRunner(BaseTaskRunner):
+class TaskRunner:
     def run(
         self,
         config: Any,
@@ -123,11 +123,12 @@ class TaskRunner(BaseTaskRunner):
         from .modern_server import register_instrumented_vllm
 
         register_instrumented_vllm()
-        _, ray_worker_group_cls = self.add_actor_rollout_worker(config)
-        self.add_critic_worker(config)
-        self.add_reward_model_resource_pool(config)
-        self.add_teacher_model_resource_pool(config)
-        resource_pool_manager = self.init_resource_pool_mgr(config)
+        worker_setup = BaseTaskRunner()
+        _, ray_worker_group_cls = worker_setup.add_actor_rollout_worker(config)
+        worker_setup.add_critic_worker(config)
+        worker_setup.add_reward_model_resource_pool(config)
+        worker_setup.add_teacher_model_resource_pool(config)
+        resource_pool_manager = worker_setup.init_resource_pool_mgr(config)
 
         from verl.utils.dataset.rl_dataset import collate_fn
 
@@ -157,7 +158,7 @@ class TaskRunner(BaseTaskRunner):
             config=config,
             tokenizer=tokenizer,
             processor=processor,
-            role_worker_mapping=self.role_worker_mapping,
+            role_worker_mapping=worker_setup.role_worker_mapping,
             resource_pool_manager=resource_pool_manager,
             ray_worker_group_cls=ray_worker_group_cls,
             train_dataset=train_dataset,

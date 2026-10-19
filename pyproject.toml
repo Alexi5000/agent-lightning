@@ -37,7 +37,7 @@ apo = [
 # though it's listed here for completeness.
 verl = [
   "verl==0.9.1; platform_machine == 'x86_64' and python_version >= '3.11' and python_version < '3.13'",
-  "vllm==0.26.0; platform_machine == 'x86_64' and python_version >= '3.11' and python_version < '3.13'", # Due to interface change of ExternalZeroMQDistributedExecutor
+  "vllm==0.26.0; platform_machine == 'x86_64' and python_version >= '3.11' and python_version < '3.13'",
 ]
 
 weave = [
@@ -103,13 +103,8 @@ torch-stable = [
   # This can work for both CPU and GPU.
   "torch==2.11.0; platform_machine == 'x86_64'",
   "torchvision==0.26.0; platform_machine == 'x86_64'",
-  # https://github.com/huggingface/transformers/issues/42369
-  "transformers==5.10.0; platform_machine == 'x86_64'",
-  # vLLM 0.11.1 requires PyTorch 2.9.0, which is incompatible with flash-attn
-  # https://github.com/Dao-AILab/flash-attention/issues/1967
-  # Similar issues with vLLM 0.11.2 and 0.12.0
+  "transformers==5.10.4; platform_machine == 'x86_64'",
   "vllm==0.26.0; platform_machine == 'x86_64' and python_version >= '3.11' and python_version < '3.13'",
-  # LiteLLM can then be upgraded with new vLLM
   "litellm[proxy]>=1.88.6,<1.104; platform_machine == 'x86_64'",
 ]
 
@@ -134,7 +129,7 @@ trl = [
   "bitsandbytes; platform_machine == 'x86_64'",
   "peft; platform_machine == 'x86_64'",
   "datasets; platform_machine == 'x86_64'",
-  "transformers==5.10.0; platform_machine == 'x86_64'",
+  "transformers==5.10.4; platform_machine == 'x86_64'",
   "trl>=0.23,<0.24; platform_machine == 'x86_64'",
   "kernels; platform_machine == 'x86_64'",
   "vllm; platform_machine == 'x86_64'",
@@ -161,8 +156,8 @@ image = [
 
 # Agent-related dependencies.
 autogen = [
-  "autogen-agentchat",
-  "autogen-ext[openai]",
+  "autogen-agentchat>=0.7.5",
+  "autogen-ext[openai]>=0.7.5",
   "mcp>=1.10.0",
   # UV is required now by default.
   # No need to include UV here.
@@ -213,6 +208,9 @@ agents = [
 [tool.uv]
 required-version = ">=0.9.9"
 conflicts = [
+  [{group = "autogen"}, {group = "torch-stable"}],
+  [{group = "autogen"}, {extra = "verl"}],
+  [{group = "autogen"}, {group = "trl"}],
   [{group = "tinker"}, {group = "torch-stable"}],
   [{group = "tinker"}, {extra = "verl"}],
   [

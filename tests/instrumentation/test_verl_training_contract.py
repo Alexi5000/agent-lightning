@@ -1,4 +1,7 @@
+# Copyright (c) Microsoft. All rights reserved.
+
 from types import SimpleNamespace
+from typing import Any, cast
 from unittest.mock import Mock
 
 import numpy as np
@@ -10,14 +13,16 @@ import torch
 from omegaconf import OmegaConf
 from tensordict import TensorDict
 from verl import DataProto
-from verl.utils import tensordict_utils as tu
+from verl.utils import tensordict_utils
+
+tu: Any = tensordict_utils
 
 from agentlightning.verl.trainer import AgentLightningTrainer
 
 
 @pytest.fixture
-def trainer():
-    trainer = object.__new__(AgentLightningTrainer)
+def trainer() -> Any:
+    trainer: Any = object.__new__(AgentLightningTrainer)
     trainer.checkpoint_manager = Mock()
     trainer.agent_mode_daemon = Mock()
     trainer.config = OmegaConf.create(
@@ -40,8 +45,8 @@ def trainer():
 
 
 @pytest.fixture
-def batch():
-    return DataProto.from_single_dict(
+def batch() -> Any:
+    return cast(Any, DataProto).from_single_dict(
         {
             "input_ids": torch.tensor([[0, 4, 5, 6], [7, 8, 9, 0]]),
             "attention_mask": torch.tensor([[0, 1, 1, 1], [1, 1, 1, 0]]),
@@ -54,13 +59,14 @@ def batch():
 
 
 @pytest.mark.parametrize("lora", [False, True])
-def test_reference_rpc_converts_padding_and_preserves_lora_routing(trainer, batch, lora):
+def test_reference_rpc_converts_padding_and_preserves_lora_routing(trainer: Any, batch: Any, lora: bool) -> None:
     trainer.ref_in_actor = lora
 
-    def infer(data):
+    def infer(data: Any) -> Any:
         assert isinstance(data, TensorDict)
-        assert data["input_ids"].is_nested
-        assert data["input_ids"].values().tolist() == [4, 5, 6, 7, 8, 9]
+        input_ids = cast(torch.Tensor, data["input_ids"])
+        assert input_ids.is_nested
+        assert torch.equal(input_ids.values(), torch.tensor([4, 5, 6, 7, 8, 9]))
         assert tu.get(data, "compute_loss") is False
         assert tu.get(data, "calculate_entropy") is False
         assert tu.get(data, "no_lora_adapter") is (True if lora else None)
@@ -75,8 +81,8 @@ def test_reference_rpc_converts_padding_and_preserves_lora_routing(trainer, batc
     assert not batch.batch["input_ids"].is_nested
 
 
-def test_actor_update_keeps_training_metadata_and_metric_names(trainer, batch):
-    def update(data):
+def test_actor_update_keeps_training_metadata_and_metric_names(trainer: Any, batch: Any) -> None:
+    def update(data: Any) -> Any:
         assert data["input_ids"].is_nested
         assert tu.get(data, "global_batch_size") == 6
         assert tu.get(data, "epochs") == 2
@@ -89,8 +95,8 @@ def test_actor_update_keeps_training_metadata_and_metric_names(trainer, batch):
     assert output.meta_info["metrics"] == {"perf/mfu/actor": 0.25, "actor/loss": 1.5}
 
 
-def test_critic_update_awaits_rpc_and_keeps_metadata(trainer, batch):
-    def update(data):
+def test_critic_update_awaits_rpc_and_keeps_metadata(trainer: Any, batch: Any) -> None:
+    def update(data: Any) -> Any:
         assert data["input_ids"].is_nested
         assert tu.get(data, "global_batch_size") == 8
         assert tu.get(data, "epochs") == 3
@@ -100,8 +106,8 @@ def test_critic_update_awaits_rpc_and_keeps_metadata(trainer, batch):
     assert trainer._update_critic(batch).meta_info["metrics"] == {"perf/mfu/critic": 0.4}
 
 
-def test_old_policy_returns_entropy_padding_and_utilization(trainer, batch):
-    def infer(data):
+def test_old_policy_returns_entropy_padding_and_utilization(trainer: Any, batch: Any) -> None:
+    def infer(data: Any) -> Any:
         assert data["input_ids"].is_nested
         assert tu.get(data, "calculate_entropy") is True
         return tu.get_tensordict(
@@ -116,8 +122,8 @@ def test_old_policy_returns_entropy_padding_and_utilization(trainer, batch):
     assert output.batch["entropys"].tolist() == [[1, 1], [1, 0]]
 
 
-def test_critic_values_restore_response_padding(trainer, batch):
-    def infer(data):
+def test_critic_values_restore_response_padding(trainer: Any, batch: Any) -> None:
+    def infer(data: Any) -> Any:
         assert data["input_ids"].is_nested
         assert tu.get(data, "compute_loss") is False
         return SimpleNamespace(get=lambda: tu.get_tensordict({"values": torch.arange(6, dtype=torch.float32)}))
@@ -127,7 +133,7 @@ def test_critic_values_restore_response_padding(trainer, batch):
 
 
 @pytest.mark.parametrize("cleanup_fails", [False, True])
-def test_rollout_failure_releases_inference_memory(trainer, cleanup_fails):
+def test_rollout_failure_releases_inference_memory(trainer: Any, cleanup_fails: bool) -> None:
     if cleanup_fails:
         trainer.agent_mode_daemon.clear_data_and_server.side_effect = RuntimeError("cleanup")
     with pytest.raises(RuntimeError):
@@ -138,7 +144,7 @@ def test_rollout_failure_releases_inference_memory(trainer, cleanup_fails):
     trainer.checkpoint_manager.sleep_replicas.assert_called_once_with()
 
 
-def test_grpo_step_runs_real_advantages_padding_and_updates(trainer, batch):
+def test_grpo_step_runs_real_advantages_padding_and_updates(trainer: Any, batch: Any) -> None:
     trainer.config = OmegaConf.merge(
         trainer.config,
         {
@@ -160,12 +166,12 @@ def test_grpo_step_runs_real_advantages_padding_and_updates(trainer, batch):
     trainer.global_steps = 1
     trainer.resource_pool_manager = SimpleNamespace(get_n_gpus=lambda: 1)
 
-    def infer(data):
+    def infer(data: Any) -> Any:
         assert data["input_ids"].is_nested
         assert tu.get(data, "temperature") == 0.7
         return tu.get_tensordict({"log_probs": torch.zeros(6), "entropy": torch.ones(6)}, {"metrics": {"mfu": 0.2}})
 
-    def update(data):
+    def update(data: Any) -> Any:
         assert data["input_ids"].is_nested
         assert torch.isfinite(data["advantages"]).all()
         assert data["advantages"].abs().sum() > 0
