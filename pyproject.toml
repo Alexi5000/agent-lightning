@@ -36,7 +36,7 @@ apo = [
 # though it's listed here for completeness.
 verl = [
   "verl>=0.5.0,<0.7; platform_machine == 'x86_64'",
-  "vllm>=0.8.4; platform_machine == 'x86_64'", # Due to interface change of ExternalZeroMQDistributedExecutor
+  "vllm==0.11.0; platform_machine == 'x86_64'", # Due to interface change of ExternalZeroMQDistributedExecutor
 ]
 
 weave = [
@@ -256,7 +256,7 @@ override-dependencies = [
 
 [tool.uv.sources]
 torch = [
-  { index = "pytorch-cu128", group = "torch-cu128" },
+  { index = "pypi", group = "torch-cu128" },
   { index = "pytorch-cpu", group = "torch-cpu" },
 ]
 
@@ -266,10 +266,12 @@ url = "https://pypi.org/simple"
 
 [[tool.uv.index]]
 name = "pytorch-cu128"
+explicit = true
 url = "https://download.pytorch.org/whl/cu128"
 
 [[tool.uv.index]]
 name = "pytorch-cpu"
+explicit = true
 url = "https://download.pytorch.org/whl/cpu"
 
 [tool.uv.extra-build-dependencies]
