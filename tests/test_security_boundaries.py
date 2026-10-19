@@ -109,6 +109,24 @@ def test_proxy_http_boundaries(source: str, monkeypatch: pytest.MonkeyPatch) -> 
     assert response.mimetype == "text/event-stream"
     assert response.data == b"data: streamed\n\n"
     assert response.headers["X-Content-Type-Options"] == "nosniff"
+    for address in [
+        "user@evil.invalid:80",
+        "127.0.0.1:80/admin",
+        "127.0.0.1:80?x",
+        "127.0.0.1:80#x",
+        "127.0.0.1:0",
+        "127.0.0.1:65536",
+        "127.0.0.1:80\n",
+    ]:
+        owner.backend_llm_server_addresses = [address]
+        backend.reset_mock()
+        assert client.get("/v1/models").status_code == 503
+        backend.assert_not_called()
+    for address in ["gpu-worker.cluster.local:8001", "10.0.0.12:8001", "[::1]:8001"]:
+        owner.backend_llm_server_addresses = [address]
+        assert client.get("/v1/models").status_code == 200
+        assert backend.call_args.kwargs["url"] == f"http://{address}/v1/models"
+    owner.backend_llm_server_addresses = ["127.0.0.1:8001"]
     backend.side_effect = requests.exceptions.ConnectionError("private backend details")
     response = client.get("/v1/chat/completions")
     assert response.status_code == 502

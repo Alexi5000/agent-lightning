@@ -2,6 +2,7 @@
 
 import base64
 import socket
+import threading
 from importlib.metadata import version
 from io import BytesIO
 from typing import Any
@@ -20,9 +21,11 @@ def test_image_token_count_blocks_private_connections(monkeypatch: pytest.Monkey
     if Version(version("langchain-openai")) < Version("1.1.14"):
         pytest.skip("Legacy OpenAI profile retains the unresolved image URL advisory")
     connections: list[object] = []
+    test_thread = threading.get_ident()
 
     def connect(*args: object, **kwargs: object) -> None:
-        connections.append(args)
+        if threading.get_ident() == test_thread:
+            connections.append(args)
         raise AssertionError("Private image URL attempted a network connection")
 
     monkeypatch.setattr(socket.socket, "connect", connect)

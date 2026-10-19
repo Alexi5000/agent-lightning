@@ -18,6 +18,7 @@ Usage:
 
 import argparse
 import asyncio
+import os
 import time
 from typing import List
 
@@ -690,7 +691,9 @@ async def main():
     await inject_mock_data(store, now=args.now)
 
     # Start server
-    server = LightningStoreServer(store, "127.0.0.1", 8765, "*")
+    server = LightningStoreServer(
+        store, os.environ.get("VITEST_PYTHON_HOST", "127.0.0.1"), int(os.environ.get("VITEST_PYTHON_PORT", "8765")), "*"
+    )
     await server.start()
 
     print(f"Server started at {server.endpoint}")

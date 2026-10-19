@@ -230,6 +230,13 @@ class EnvAgentModeDaemon:
 
             # Randomly choose a backend server for load balancing
             target_server = random.choice(self.backend_llm_server_addresses)
+            if not re.fullmatch(
+                r"(?:[A-Za-z0-9](?:[A-Za-z0-9.-]*[A-Za-z0-9])?|\[[0-9A-Fa-f:]+\]):[0-9]{1,5}", target_server
+            ):
+                abort(503, description="Invalid backend LLM server address.")
+            backend_port = int(target_server.rsplit(":", 1)[1])
+            if not 1 <= backend_port <= 65535:
+                abort(503, description="Invalid backend LLM server port.")
             if not re.fullmatch(r"[^\x00-\x1f\x7f]+", path):
                 abort(400, description="Invalid API path.")
             if "\\" in path or any(segment in (".", "..") for segment in path.split("/")):
