@@ -52,6 +52,9 @@ jobs:
             --group langchain \
             --no-default-groups
         if: matrix.setup != 'fast'
+      - name: Install isolated legacy integration for compatibility checks
+        run: uv pip install -r examples/tinker/legacy-crewai/requirements.txt
+        if: matrix.setup != 'fast'
       # This pre-commit skips JavaScript on purpose.
       - name: Run pre-commit
         uses: pre-commit/action@2c7b3805fd2a0fd8c1884dcaebf91fc102a13ecd

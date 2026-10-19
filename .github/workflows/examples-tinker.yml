@@ -55,6 +55,8 @@ jobs:
         run: |
           uv sync --frozen --no-default-groups \
             --group dev --group experiment --group agents --group torch-cpu --group core-stable --group tinker
+      - name: Install explicit legacy CrewAI example dependencies
+        run: uv pip install -r examples/tinker/legacy-crewai/requirements.txt
       - name: Freeze dependencies
         run: |
           set -euo pipefail
