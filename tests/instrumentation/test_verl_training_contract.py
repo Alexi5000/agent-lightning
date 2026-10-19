@@ -144,13 +144,14 @@ def test_rollout_failure_releases_inference_memory(trainer: Any, cleanup_fails: 
     trainer.checkpoint_manager.sleep_replicas.assert_called_once_with()
 
 
-def test_grpo_step_runs_real_advantages_padding_and_updates(trainer: Any, batch: Any) -> None:
+@pytest.mark.parametrize("adv_estimator", ["grpo", "gae"])
+def test_training_step_runs_real_advantages_padding_and_updates(trainer: Any, batch: Any, adv_estimator: str) -> None:
     trainer.config = OmegaConf.merge(
         trainer.config,
         {
             "agentlightning": {"trace_aggregator": {"level": "transition"}},
             "data": {"max_prompt_length": 2, "max_response_length": 2},
-            "algorithm": {"adv_estimator": "grpo", "use_kl_in_reward": False, "gamma": 1.0, "lam": 1.0},
+            "algorithm": {"adv_estimator": adv_estimator, "use_kl_in_reward": False, "gamma": 1.0, "lam": 1.0},
             "trainer": {"balance_batch": False, "critic_warmup": 0},
             "actor_rollout_ref": {"actor": {"ppo_mini_batch_size": 1, "loss_agg_mode": "token-mean"}},
         },
@@ -162,7 +163,7 @@ def test_grpo_step_runs_real_advantages_padding_and_updates(trainer: Any, batch:
     trainer.llm_server_manager = SimpleNamespace(server_addresses=["127.0.0.1:9000"])
     trainer.use_rm = False
     trainer.use_reference_policy = False
-    trainer.use_critic = False
+    trainer.use_critic = adv_estimator == "gae"
     trainer.global_steps = 1
     trainer.resource_pool_manager = SimpleNamespace(get_n_gpus=lambda: 1)
 
@@ -178,6 +179,16 @@ def test_grpo_step_runs_real_advantages_padding_and_updates(trainer: Any, batch:
         return tu.get_tensordict({}, {"metrics": {"mfu": 0.4, "loss": 0.5}})
 
     trainer.actor_rollout_wg = SimpleNamespace(world_size=1, compute_log_prob=infer, update_actor=update)
+
+    def infer_values(data: Any) -> Any:
+        assert data["input_ids"].is_nested
+        return SimpleNamespace(get=lambda: tu.get_tensordict({"values": torch.zeros(6)}))
+
+    def train_critic(data: Any) -> Any:
+        assert data["input_ids"].is_nested
+        return SimpleNamespace(get=lambda: tu.get_tensordict({}, {"metrics": {"mfu": 0.3}}))
+
+    trainer.critic_wg = SimpleNamespace(infer_batch=infer_values, train_mini_batch=train_critic)
     metrics = trainer._train_step({"fake_ids": torch.tensor([[1], [2]])})
     assert metrics["actor/loss"] == 0.5
     assert metrics["training/n_triplets_dropped_remainder"] == 0
