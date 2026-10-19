@@ -6,6 +6,7 @@ import ast
 import json
 import random
 import re
+import socket
 import subprocess
 import time
 from pathlib import Path
@@ -17,6 +18,7 @@ from urllib.parse import quote, urlsplit
 import pytest
 import requests
 from flask import Flask, Response, abort, request
+from werkzeug.serving import make_server
 
 ROOT = Path(__file__).resolve().parents[1]
 DAEMONS = [
@@ -131,6 +133,33 @@ def test_proxy_http_boundaries(source: str, monkeypatch: pytest.MonkeyPatch) -> 
     response = client.get("/v1/chat/completions")
     assert response.status_code == 502
     assert b"private backend details" not in response.data
+
+
+@pytest.mark.parametrize("source", DAEMONS)
+def test_legacy_proxy_only_listens_on_advertised_loopback(source: str, monkeypatch: pytest.MonkeyPatch) -> None:
+    app = Flask(__name__)
+    listeners: list[Any] = []
+
+    def run_app(*, host: str, port: int, **kwargs: Any) -> None:
+        listeners.append(make_server(host, port, app))
+
+    monkeypatch.setattr(app, "run", run_app)
+    namespace: dict[str, Any] = {
+        "Flask": Mock(return_value=app),
+        "threading": SimpleNamespace(Thread=lambda target, daemon: SimpleNamespace(start=target)),
+        "__name__": __name__,
+    }
+    owner = SimpleNamespace(proxy_port=0)
+    try:
+        load_method(ROOT / source, "_start_proxy_server_v0", namespace)(owner)
+        assert len(listeners) == 1
+        listener = listeners[0]
+        assert listener.socket.getsockname()[0] == "127.0.0.1"
+        with socket.create_connection(listener.socket.getsockname(), timeout=1):
+            pass
+    finally:
+        for listener in listeners:
+            listener.server_close()
 
 
 def test_command_output_does_not_enter_logs() -> None:

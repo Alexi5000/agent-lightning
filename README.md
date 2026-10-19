@@ -52,6 +52,8 @@ LiteLLM is bounded below 1.104: that release requires proxy master-key authentic
 
 The fork runs CPU validation in `tests.yml`. Upstream publishing, paid-service examples, and GPU workflows remain disabled until their infrastructure and destinations are configured.
 
+The legacy VERL v0 HTTP proxy listens only on `127.0.0.1`, matching its advertised client endpoint. It forwards to trainer-configured distributed backend addresses. Keep the trainer control plane and backend network trusted; this local proxy does not provide authentication for other processes on the same host.
+
 ```bash
 pip install agentlightning
 ```
