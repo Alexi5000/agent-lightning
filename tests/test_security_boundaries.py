@@ -106,7 +106,7 @@ def test_proxy_http_boundaries(source: str, monkeypatch: pytest.MonkeyPatch) -> 
     assert response.json == {"ok": True}
     assert backend.call_args.kwargs["url"] == "/v1/chat/completions?version=1"
     assert backend.call_args.kwargs["redirect"] is False
-    namespace["urlencode"] = lambda values: "version=1\r\nHost: untrusted.invalid"
+    namespace["urlencode"] = Mock(return_value="version=1\r\nHost: untrusted.invalid")
     backend.reset_mock()
     assert client.get("/v1/models?version=1").status_code == 400
     backend.assert_not_called()
