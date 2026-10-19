@@ -34,7 +34,7 @@ This fork supports Python 3.10–3.13; the optional Tinker group requires Python
 
 The lock overrides legacy LiteLLM pins to use python-multipart 0.0.32 or newer within the 0.0 series. Offline FastAPI upload, malformed-boundary, and missing-file regressions cover the older HTTP stack against this security update.
 
-The Linux lock also overrides the legacy LiteLLM cryptography pin with cryptography 50.0.2. Offline RSA JWT verification through both certificates and JWKs, signature rejection, and license-signature checks exercise the actual LiteLLM consumers. CI repeats these checks against LiteLLM 1.74.15; this does not validate GPU training or live provider integrations.
+The Linux lock also overrides the legacy LiteLLM cryptography pin with cryptography 50.0.2. Offline RSA JWT verification through both certificates and JWKs, signature rejection, and license-signature checks exercise the actual LiteLLM consumers. CI repeats these checks against the supported minimum LiteLLM 1.88.6; this does not validate GPU training or live provider integrations.
 
 The lock overrides CrewAI's legacy json-repair pin with json-repair 0.60.1. Offline checks cover CrewAI tool-argument parsing, final answers, and rejection of circular JSON Schema references within a bounded subprocess. This does not validate live CrewAI provider calls.
 
@@ -44,9 +44,11 @@ The lock overrides datasets' older fsspec cap with fsspec 2026.6.0 and updates s
 
 The lock overrides legacy vLLM xgrammar pins with xgrammar 0.1.32. Offline CPU tests cover grammar compilation, token masks, rollback/reset, JSON/regex output, both structural-tag APIs, and rejection of excessively nested untrusted grammars without a native crash. The slow/latest lint jobs run these tests with the locked training stack; full GPU inference remains unvalidated.
 
-The stable profile uses patched LangChain image URL handling and the OpenAI 2.26 SDK. The legacy profile retains OpenAI 1 and its older LangChain integration, including its unresolved image URL advisory.
+All locked CPU profiles now use patched LiteLLM (>=1.88.6), OpenAI 2.26 and patched LangChain image URL handling. The legacy OpenAI 1, vLLM 0.9/0.10 and LiteLLM 1.74/1.79 profiles are retired. Python 3.10 remains in CPU CI using the stable dependencies. The lock targets Linux x86_64, matching the retained CUDA 12.8 training wheels; this does not narrow the package metadata to Linux.
 
-LiteLLM is bounded below 1.104: that release requires proxy master-key authentication, which needs a coordinated credential lifecycle migration for Lightning resources and callers. Authentication enforcement is not disabled. Existing legacy LiteLLM security findings remain unresolved.
+The remaining training profile explicitly retains vLLM 0.11.0, Torch 2.8.0 and VERL 0.6.1 pending the coordinated server/worker migration. Its known vLLM vulnerabilities remain unresolved. CrewAI and Chroma also remain in the optional agents group with unresolved Chroma advisories. Retirement of the remaining vulnerable training profile and isolation of Chroma are not complete.
+
+LiteLLM is bounded below 1.104: that release requires proxy master-key authentication, which needs a coordinated credential lifecycle migration for Lightning resources and callers. Authentication enforcement is not disabled. Older LiteLLM versions are no longer supported.
 
 The fork runs CPU validation in `tests.yml`. Upstream publishing, paid-service examples, and GPU workflows remain disabled until their infrastructure and destinations are configured.
 
