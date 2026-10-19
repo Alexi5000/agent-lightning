@@ -10,7 +10,7 @@ import socket
 import threading
 import time
 import uuid
-from urllib.parse import quote
+from urllib.parse import quote, urlencode
 
 logger = logging.getLogger(__name__)
 from collections import defaultdict
@@ -18,8 +18,8 @@ from collections.abc import Mapping
 from typing import Any, Dict, List, Literal, Optional, Tuple, cast
 
 import numpy as np
-import requests
 import torch
+import urllib3
 from flask import Flask, Response, abort, request
 from tensordict import TensorDict
 from verl import DataProto
@@ -254,7 +254,10 @@ class EnvAgentModeDaemon:
             encoded_path = quote(path, safe="/")
             if not re.fullmatch(r"(?:[A-Za-z0-9._~/-]|%[0-9A-Fa-f]{2})+", encoded_path):
                 abort(400, description="Invalid encoded API path.")
-            target_url = f"http://{target_server}/v1/{encoded_path}"
+            backend_host = target_server.rsplit(":", 1)[0].strip("[]")
+            request_target = f"/v1/{encoded_path}"
+            if request.args:
+                request_target += "?" + urlencode(list(request.args.items(multi=True)))
 
             # Copy client request headers, removing the Host header
             headers = {key: value for key, value in request.headers if key.lower() != "host"}
@@ -269,16 +272,18 @@ class EnvAgentModeDaemon:
 
             try:
                 # Forward the request to the target backend
-                resp = requests.request(
-                    method=request.method,
-                    url=target_url,
-                    headers=headers,
-                    params=request.args,  # type: ignore
-                    data=request.get_data(),
-                    cookies=request.cookies,
-                    allow_redirects=False,
-                    timeout=self.llm_timeout_seconds,
-                )
+                with urllib3.HTTPConnectionPool(
+                    host=backend_host, port=backend_port, timeout=self.llm_timeout_seconds
+                ) as backend:
+                    resp = backend.urlopen(
+                        method=request.method,
+                        url=request_target,
+                        headers=headers,
+                        body=request.get_data(),
+                        redirect=False,
+                        retries=False,
+                        assert_same_host=True,
+                    )
                 # Filter out hop-by-hop headers before returning the response
                 excluded_headers = [
                     "content-type",
@@ -295,23 +300,23 @@ class EnvAgentModeDaemon:
                     "upgrade",
                 ]
                 response_headers = [
-                    (name, value) for name, value in resp.raw.headers.items() if name.lower() not in excluded_headers
+                    (name, value) for name, value in resp.headers.items() if name.lower() not in excluded_headers
                 ]
                 response_headers.append(("X-Content-Type-Options", "nosniff"))
                 upstream_type = next(
                     (
                         value.split(";", 1)[0].strip().lower()
-                        for name, value in resp.raw.headers.items()
+                        for name, value in resp.headers.items()
                         if name.lower() == "content-type"
                     ),
                     "application/json",
                 )
                 content_type = "text/event-stream" if upstream_type == "text/event-stream" else "application/json"
-                if resp.status_code == 200 and content_type == "application/json":
+                if resp.status == 200 and content_type == "application/json":
                     # NOTE: from Zhiyuan's code.
                     # https://github.com/hzy46/verl_agent_mode/blob/2db65ea9858f645a914120357412a7540f8bd82d/verl/trainer/ppo/ray_trainer.py#L692-L711
                     # request_json = json.loads(request.get_data().decode("utf-8"))
-                    response_json = json.loads(resp.content.decode("utf-8"))
+                    response_json = json.loads(resp.data.decode("utf-8"))
                     # response_message = ChatCompletion(**response_json).choices[0].message.model_dump(exclude_unset=True, exclude_none=True)
                     # tool_schemas = request_json.get("tools", None)
                     # prompt_ids = self.tokenizer.apply_chat_template(request_json["messages"], tools=tool_schemas, add_generation_prompt=True, tokenize=True)
@@ -329,12 +334,12 @@ class EnvAgentModeDaemon:
                     replaced_return_content = json.dumps(response_json).encode("utf-8")
                     return Response(
                         replaced_return_content,
-                        status=resp.status_code,
+                        status=resp.status,
                         headers=response_headers,
                         content_type=content_type,
                     )
-                return Response(resp.content, resp.status_code, response_headers, content_type=content_type)
-            except requests.exceptions.RequestException:
+                return Response(resp.data, resp.status, response_headers, content_type=content_type)
+            except urllib3.exceptions.HTTPError:
                 abort(502, description="Backend request failed.")
 
         def run_app():
