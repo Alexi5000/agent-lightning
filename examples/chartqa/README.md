@@ -14,7 +14,7 @@ uv sync --frozen \
     --group experiment \
     --group image \
     --group langchain \
-    --group vllm-0-10-2 \
+    --group torch-stable \
     --group torch-gpu-stable
 ```
 

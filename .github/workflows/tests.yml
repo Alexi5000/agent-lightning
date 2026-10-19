@@ -177,7 +177,7 @@ jobs:
             pytest-mark: 'not store and not agentops and not weave and not llmproxy and not utils'
         env:
           - python-version: '3.10'
-            setup-script: 'legacy'
+            setup-script: 'stable'
           - python-version: '3.11'
             setup-script: 'stable'
           - python-version: '3.12'
@@ -201,7 +201,7 @@ jobs:
       - name: Sync dependencies (latest)
         run: uv sync --frozen --no-default-groups --extra apo --extra weave --group dev --group agents --group langchain --group core-stable
         if: matrix.env.setup-script == 'latest'
-      - name: Sync dependencies (stable & legacy)
+      - name: Sync dependencies (stable)
         run: uv sync --frozen --no-default-groups --extra apo --extra weave --group dev --group agents --group langchain --group core-${{ matrix.env.setup-script }}
         if: matrix.env.setup-script != 'latest'
       - name: Freeze dependencies
@@ -234,15 +234,15 @@ jobs:
           PYTEST_ADDOPTS: "--color=yes"
 
       - name: Verify stable LangChain security compatibility
-        if: matrix.env.setup-script != 'legacy' && matrix.mark.id == 'others'
+        if: matrix.mark.id == 'others'
         run: |
           uv run --no-sync python -c "import langchain_openai; from PIL import Image"
           uv run --no-sync pytest -v tests/test_langchain_openai_security.py
 
-      - name: Verify legacy LiteLLM security compatibility
-        if: matrix.env.setup-script == 'legacy' && matrix.mark.id == 'others'
+      - name: Verify minimum supported LiteLLM security compatibility
+        if: matrix.env.python-version == '3.10' && matrix.mark.id == 'others'
         run: |
-          uv pip install --no-deps litellm==1.74.15
+          uv pip install --no-deps litellm==1.88.6
           uv run --no-sync pytest -v tests/test_crypto_compat.py tests/test_sso_compat.py tests/test_multipart_compat.py tests/llm_proxy/test_llm_proxy_cpu.py tests/llm_proxy/test_stream.py -m "not openai and not gpu"
 
   test-js:
