@@ -3,20 +3,22 @@
 """Exercise HTTP boundaries without importing optional GPU training packages."""
 
 import ast
+import gzip
 import json
 import random
 import re
 import socket
 import subprocess
+import threading
 import time
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any, Callable
 from unittest.mock import AsyncMock, Mock
-from urllib.parse import quote, urlsplit
+from urllib.parse import quote, urlencode, urlsplit
 
 import pytest
-import requests
+import urllib3
 from flask import Flask, Response, abort, request
 from werkzeug.serving import make_server
 
@@ -38,21 +40,23 @@ def load_method(path: Path, method_name: str, namespace: dict[str, Any]) -> Any:
 @pytest.mark.parametrize("source", DAEMONS)
 def test_proxy_http_boundaries(source: str, monkeypatch: pytest.MonkeyPatch) -> None:
     app = Flask(__name__)
-    backend = Mock(
-        return_value=SimpleNamespace(status_code=200, content=b'{"ok":true}', raw=SimpleNamespace(headers={}))
-    )
-    monkeypatch.setattr(requests, "request", backend)
+    backend = Mock(return_value=SimpleNamespace(status=200, data=b'{"ok":true}', headers={}))
+    pool = Mock()
+    pool.return_value.__enter__ = Mock(return_value=SimpleNamespace(urlopen=backend))
+    pool.return_value.__exit__ = Mock(return_value=False)
+    monkeypatch.setattr(urllib3, "HTTPConnectionPool", pool)
     namespace: dict[str, Any] = {
         "Flask": Mock(return_value=app),
         "Response": Response,
         "abort": abort,
         "request": request,
-        "requests": requests,
+        "urllib3": urllib3,
         "random": random,
         "re": re,
         "time": time,
         "json": json,
         "quote": quote,
+        "urlencode": urlencode,
         "threading": SimpleNamespace(Thread=Mock(return_value=SimpleNamespace(start=Mock()))),
         "__name__": __name__,
     }
@@ -100,12 +104,19 @@ def test_proxy_http_boundaries(source: str, monkeypatch: pytest.MonkeyPatch) -> 
     response = client.post("/v1/chat/completions?version=1", json={"model": "example"})
     assert response.status_code == 200
     assert response.json == {"ok": True}
-    assert backend.call_args.kwargs["url"] == "http://127.0.0.1:8001/v1/chat/completions"
-    assert backend.call_args.kwargs["allow_redirects"] is False
+    assert backend.call_args.kwargs["url"] == "/v1/chat/completions?version=1"
+    assert backend.call_args.kwargs["redirect"] is False
+    namespace["urlencode"] = Mock(return_value="version=1\r\nHost: untrusted.invalid")
+    backend.reset_mock()
+    assert client.get("/v1/models?version=1").status_code == 400
+    backend.assert_not_called()
+    namespace["urlencode"] = urlencode
     for path in ["models/a%3fb%23c", "models/http:%2f%2fevil.invalid"]:
         assert client.get("/v1/" + path).status_code == 200
         url = urlsplit(str(backend.call_args.kwargs["url"]))
-        assert url.netloc == "127.0.0.1:8001"
+        assert not url.netloc
+        assert pool.call_args.kwargs["host"] == "127.0.0.1"
+        assert pool.call_args.kwargs["port"] == 8001
         assert url.path.startswith("/v1/")
         assert not url.query and not url.fragment
     for path, encoded in [
@@ -115,20 +126,20 @@ def test_proxy_http_boundaries(source: str, monkeypatch: pytest.MonkeyPatch) -> 
         ("models/model.v2_~", "models/model.v2_~"),
     ]:
         assert client.get("/v1/" + path).status_code == 200
-        assert backend.call_args.kwargs["url"] == "http://127.0.0.1:8001/v1/" + encoded
+        assert backend.call_args.kwargs["url"] == "/v1/" + encoded
     backend.return_value = SimpleNamespace(
-        status_code=400,
-        content=b'<script>alert("unsafe")</script>',
-        raw=SimpleNamespace(headers={"Content-Type": "text/html"}),
+        status=400,
+        data=b'<script>alert("unsafe")</script>',
+        headers={"Content-Type": "text/html"},
     )
     response = client.get("/v1/chat/completions")
     assert response.status_code == 400
     assert response.content_type == "application/json"
     assert response.headers["X-Content-Type-Options"] == "nosniff"
     backend.return_value = SimpleNamespace(
-        status_code=200,
-        content=b"data: streamed\n\n",
-        raw=SimpleNamespace(headers={"Content-Type": "text/event-stream; charset=utf-8"}),
+        status=200,
+        data=b"data: streamed\n\n",
+        headers={"Content-Type": "text/event-stream; charset=utf-8"},
     )
     response = client.get("/v1/chat/completions")
     assert response.mimetype == "text/event-stream"
@@ -150,9 +161,11 @@ def test_proxy_http_boundaries(source: str, monkeypatch: pytest.MonkeyPatch) -> 
     for address in ["gpu-worker.cluster.local:8001", "10.0.0.12:8001", "[::1]:8001"]:
         owner.backend_llm_server_addresses = [address]
         assert client.get("/v1/models").status_code == 200
-        assert backend.call_args.kwargs["url"] == f"http://{address}/v1/models"
+        assert backend.call_args.kwargs["url"] == "/v1/models"
+        assert pool.call_args.kwargs["host"] == address.rsplit(":", 1)[0].strip("[]")
+        assert pool.call_args.kwargs["port"] == 8001
     owner.backend_llm_server_addresses = ["127.0.0.1:8001"]
-    backend.side_effect = requests.exceptions.ConnectionError("private backend details")
+    backend.side_effect = urllib3.exceptions.HTTPError("private backend details")
     response = client.get("/v1/chat/completions")
     assert response.status_code == 502
     assert b"private backend details" not in response.data
@@ -186,6 +199,82 @@ def test_legacy_proxy_only_listens_on_advertised_loopback(source: str, monkeypat
     finally:
         for listener in listeners:
             listener.server_close()
+
+
+@pytest.mark.parametrize("source", DAEMONS)
+def test_proxy_transport_stays_on_configured_backend(source: str, monkeypatch: pytest.MonkeyPatch) -> None:
+    upstream = Flask("upstream")
+    received: list[dict[str, Any]] = []
+
+    def capture(path: str) -> Response:
+        received.append(
+            {
+                "path": path,
+                "query": list(request.args.items(multi=True)),
+                "body": request.get_data(),
+                "cookie": request.headers.get("Cookie"),
+                "authorization": request.headers.get("Authorization"),
+                "host": request.host,
+            }
+        )
+        if path == "redirect":
+            return Response(status=302, headers={"Location": "http://untrusted.invalid/secret"})
+        response = Response(
+            gzip.compress(b'{"ok":true}'), headers={"Content-Encoding": "gzip"}, content_type="application/json"
+        )
+        response.headers.add("Set-Cookie", "first=1; HttpOnly")
+        response.headers.add("Set-Cookie", "second=2; HttpOnly")
+        return response
+
+    upstream.add_url_rule("/v1/<path:path>", view_func=capture, methods=["GET", "POST"])
+    listener = make_server("127.0.0.1", 0, upstream)
+    server_thread = threading.Thread(target=listener.serve_forever, daemon=True)
+    server_thread.start()
+    app = Flask("proxy")
+    namespace: dict[str, Any] = {
+        "Flask": Mock(return_value=app),
+        "Response": Response,
+        "abort": abort,
+        "request": request,
+        "urllib3": urllib3,
+        "random": random,
+        "re": re,
+        "time": time,
+        "json": json,
+        "quote": quote,
+        "urlencode": urlencode,
+        "threading": SimpleNamespace(Thread=Mock(return_value=SimpleNamespace(start=Mock()))),
+        "__name__": __name__,
+    }
+    owner = SimpleNamespace(
+        backend_llm_server_addresses=[f"127.0.0.1:{listener.server_port}"], llm_timeout_seconds=2, proxy_port=80
+    )
+    load_method(ROOT / source, "_start_proxy_server_v0", namespace)(owner)
+    client = app.test_client()
+    client.set_cookie("session", "retained")
+    monkeypatch.setenv("HTTP_PROXY", "http://127.0.0.1:1")
+    monkeypatch.setenv("ALL_PROXY", "http://127.0.0.1:1")
+    monkeypatch.setenv("NO_PROXY", "")
+    try:
+        for path in ["chat/completions", "models/http:%2F%2Funtrusted.invalid", "models/a%3Fb%23c"]:
+            response = client.post(
+                "/v1/" + path + "?key=one&key=two&query=a%26b", data=b"body", headers={"Authorization": "Bearer test"}
+            )
+            assert response.status_code == 200
+            assert response.json == {"ok": True}
+            assert "Content-Encoding" not in response.headers
+            assert response.headers.getlist("Set-Cookie") == ["first=1; HttpOnly", "second=2; HttpOnly"]
+            assert received[-1]["query"] == [("key", "one"), ("key", "two"), ("query", "a&b")]
+            assert received[-1]["body"] == b"body"
+            assert "session=retained" in received[-1]["cookie"]
+            assert received[-1]["authorization"] == "Bearer test"
+            assert received[-1]["host"] == f"127.0.0.1:{listener.server_port}"
+        assert client.get("/v1/redirect").status_code == 302
+        assert len(received) == 4
+    finally:
+        listener.shutdown()
+        server_thread.join(timeout=2)
+        listener.server_close()
 
 
 def test_command_output_does_not_enter_logs() -> None:

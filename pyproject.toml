@@ -10,6 +10,7 @@ dependencies = [
   "gpustat",
   "setproctitle",
   "flask",
+  "urllib3>=2.6.3,<3",
   "agentops>=0.4.13",
   "uvicorn",
   "fastapi",

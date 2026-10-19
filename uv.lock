@@ -122,6 +122,7 @@ dependencies = [
     { name = "pydantic" },
     { name = "rich" },
     { name = "setproctitle" },
+    { name = "urllib3" },
     { name = "uvicorn" },
     { name = "uvicorn-worker" },
 ]
@@ -333,6 +334,7 @@ requires-dist = [
     { name = "pymongo", marker = "extra == 'mongo'" },
     { name = "rich" },
     { name = "setproctitle" },
+    { name = "urllib3", specifier = ">=2.6.3,<3" },
     { name = "uvicorn" },
     { name = "uvicorn-worker" },
     { name = "verl", marker = "platform_machine == 'x86_64' and extra == 'verl'", specifier = ">=0.5.0,<0.7" },
