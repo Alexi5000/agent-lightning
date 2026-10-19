@@ -1,5 +1,5 @@
-#!/usr/bin/env node
 // Copyright (c) Microsoft. All rights reserved.
+
 import http from 'node:http';
 
 setTimeout(() => {
