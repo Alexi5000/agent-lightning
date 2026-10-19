@@ -192,10 +192,6 @@ rag = [
   "faiss-cpu>=1.11.0",
   "sentence-transformers>=4.1.0",
 ]
-crewai = [
-  # https://github.com/crewAIInc/crewAI/issues/3959
-  "crewai[tools]>=1.2.0,!=1.2.1,!=1.3.0,!=1.4.0,!=1.4.1,!=1.5.0",
-]
 swebench = [
   "swebench>=4.1,<5",
 ]
@@ -208,7 +204,6 @@ agents = [
   {include-group = "openai-agents"},
   {include-group = "sql"},
   {include-group = "anthropic"},
-  {include-group = "crewai"},
   {include-group = "swebench"},
 ]
 
@@ -239,7 +234,6 @@ override-dependencies = [
   "cryptography>=50.0.2,<51",
   "python-multipart>=0.0.32,<0.1",
   "pydantic>=2.11,<2.13",
-  # A conflict between the dependency of litellm[proxy] and crewai[tools]
   "mcp>=1.19.0,<2",
   "uvicorn>=0.38.0",
   # Conflicts between packaging dependency of pyvers (dependency of tensordict) and agentops.

@@ -36,7 +36,7 @@ The lock overrides LiteLLM HTTP dependencies to use python-multipart 0.0.32 or n
 
 The Linux lock also overrides the LiteLLM cryptography dependency with cryptography 50.0.2. Offline RSA JWT verification through both certificates and JWKs, signature rejection, and license-signature checks exercise the actual LiteLLM consumers. CI repeats these checks against the supported minimum LiteLLM 1.88.6; this does not validate GPU training or live provider integrations.
 
-The lock overrides CrewAI's legacy json-repair pin with json-repair 0.60.1. Offline checks cover CrewAI tool-argument parsing, final answers, and rejection of circular JSON Schema references within a bounded subprocess. This does not validate live CrewAI provider calls.
+The explicit legacy CrewAI requirements constrain json-repair to patched 0.60.x. Offline checks cover CrewAI tool-argument parsing, final answers, and rejection of circular JSON Schema references within a bounded subprocess. This does not validate live CrewAI provider calls.
 
 The lock overrides LiteLLM HTTP dependencies with FastAPI 0.140.x, Starlette 1.3.x, and fastapi-sso 0.23.x. FastAPI's standard extras remain installed. CPU tests exercise store HTTP requests, proxy start/restart and completion streaming, and an offline Google SSO authorization-code exchange with missing or forged state rejected before token exchange. Live identity providers and GPU serving still require deployment-specific validation.
 
@@ -46,7 +46,7 @@ The lock overrides retained vLLM xgrammar dependency with xgrammar 0.1.32. Offli
 
 All locked CPU profiles now use patched LiteLLM (>=1.88.6), OpenAI 2.26 and patched LangChain image URL handling. The legacy OpenAI 1, vLLM 0.9/0.10 and LiteLLM 1.74/1.79 profiles are retired. Python 3.10 remains in CPU CI using the stable dependencies. The lock preserves Linux CPU support across architectures. Retained training-group dependencies are explicitly x86_64-only, matching their CUDA 12.8 wheels. The CUDA group uses the official PyPI Torch 2.8 wheel, whose metadata pins CUDA runtime12.8.90 and cuBLAS12.8.4.1. The separate CPU index remains explicit so it cannot affect other architecture resolution.
 
-The remaining training profile explicitly retains vLLM 0.11.0, Torch 2.8.0 and VERL 0.6.1 pending the coordinated server/worker migration. Its known vLLM vulnerabilities remain unresolved. CrewAI and Chroma also remain in the optional agents group with unresolved Chroma advisories. Retirement of the remaining vulnerable training profile and isolation of Chroma are not complete.
+The remaining training profile explicitly retains vLLM 0.11.0, Torch 2.8.0 and VERL 0.6.1 pending the coordinated server/worker migration. Its known vLLM vulnerabilities remain unresolved. CrewAI and Chroma are isolated in explicit legacy requirements with unresolved Chroma advisories, outside the root lock and agents group. Retirement of the remaining vulnerable training profile is not complete.
 
 LiteLLM is bounded below 1.104: that release requires proxy master-key authentication, which needs a coordinated credential lifecycle migration for Lightning resources and callers. Authentication enforcement is not disabled. Older LiteLLM versions are no longer supported.
 
@@ -140,3 +140,7 @@ This project has been evaluated and certified to comply with the Microsoft Respo
 ## ⚡ License
 
 This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
+
+### Legacy CrewAI integration isolation
+
+The root lock and `agents` group no longer install CrewAI or ChromaDB. The q20 integration remains in `examples/tinker`, with an explicit known-vulnerable legacy environment described in its README. It is not part of the supported default install or a security-clean profile. Its requirements remain committed for scanner visibility.

@@ -84,10 +84,14 @@ Agent-lightning hides that translation step: you keep the first style for develo
 
 ## Setup
 
+**Security status:** CrewAI 1.6.1 requires ChromaDB 1.1.1, with unresolved critical code-injection advisories. The root install and lock no longer include this integration. The explicit legacy requirements remain visible to dependency scanners and are not certified safe. Use only a disposable isolated environment without production data or credentials; do not expose its Chroma service. The q20 example code remains available, and the separate Tinker bridge can be installed without CrewAI.
+
 **1. Install dependencies.** From the repo root:
 
 ```bash
 uv sync --frozen --extra apo --group dev --group agents --group tinker
+# Only for the legacy CrewAI q20 example, in a disposable environment:
+uv pip install -r examples/tinker/legacy-crewai/requirements.txt
 ```
 
 If you are not using `uv`, make sure `tinker`, `tinker_cookbook`, `litellm`, `crewai`, and Agent-lightning are available in the same environment.
