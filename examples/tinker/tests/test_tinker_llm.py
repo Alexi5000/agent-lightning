@@ -16,7 +16,7 @@ import tinker
 from agl_tinker.llm import TinkerLLM
 from agl_tinker.rollout import reconstruct_transitions
 from rich.console import Console
-from tinker_cookbook.renderers import Qwen3InstructRenderer
+from tinker_cookbook.renderers import get_renderer
 from transformers import AutoTokenizer, PreTrainedTokenizer
 
 from agentlightning import (
@@ -122,7 +122,7 @@ async def _run_tracer_test(*, use_tool_call: bool) -> None:
     model_name = "Qwen/Qwen3-30B-A3B-Instruct-2507"
 
     tokenizer = cast(PreTrainedTokenizer, AutoTokenizer.from_pretrained(model_name))  # type: ignore
-    renderer = Qwen3InstructRenderer(tokenizer)  # type: ignore
+    renderer = get_renderer("qwen3_instruct", tokenizer)  # type: ignore
     service_client = tinker.ServiceClient()
     sampling_client = service_client.create_sampling_client(base_model=model_name)
     tinker_llm = TinkerLLM(
@@ -203,7 +203,7 @@ async def test_llm_proxy():
     model_name = "Qwen/Qwen3-30B-A3B-Instruct-2507"
 
     tokenizer = cast(PreTrainedTokenizer, AutoTokenizer.from_pretrained(model_name))  # type: ignore
-    renderer = Qwen3InstructRenderer(tokenizer)  # type: ignore
+    renderer = get_renderer("qwen3_instruct", tokenizer)  # type: ignore
     service_client = tinker.ServiceClient()
     sampling_client = service_client.create_sampling_client(base_model=model_name)
     tinker_llm = TinkerLLM(

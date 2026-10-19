@@ -187,54 +187,37 @@ class AgentLightningTrainer(RayPPOTrainer):
         self.adapter = adapter
         self.daemon_cls = daemon_cls
 
+    @contextmanager
+    def _rollout_context(self):
+        """Release inference memory and daemon state even when a rollout fails."""
+        self.checkpoint_manager.wake_up_replicas()
+        try:
+            yield
+        finally:
+            try:
+                self.agent_mode_daemon.clear_data_and_server()
+            finally:
+                self.checkpoint_manager.sleep_replicas()
+
     def _validate(self):
         assert len(self.val_dataloader) == 1, "Please set val_batch_size to None for better throughput."
 
         test_data = next(iter(self.val_dataloader))
         test_batch = DataProto.from_single_dict(test_data)
 
-        self.async_rollout_manager.wake_up()
-        self.agent_mode_daemon.set_up_data_and_server(
-            test_batch.non_tensor_batch,
-            self.async_rollout_manager.server_addresses,
-            is_train=False,
-        )
-        self.agent_mode_daemon.run_until_all_finished()
-        test_metrics = self.agent_mode_daemon.get_test_metrics()
-        self.agent_mode_daemon.clear_data_and_server()
-        self.async_rollout_manager.sleep()
+        with self._rollout_context():
+            self.agent_mode_daemon.set_up_data_and_server(
+                test_batch.non_tensor_batch,
+                self.llm_server_manager.server_addresses,
+                is_train=False,
+            )
+            self.agent_mode_daemon.run_until_all_finished()
+            test_metrics = self.agent_mode_daemon.get_test_metrics()
         return test_metrics
 
     def _compute_reference_log_prob(self, batch: DataProto) -> DataProto:
-        """Compute reference log probability using the correct worker based on LoRA configuration.
-
-        In verl 0.6.0+, when LoRA is detected (indicated by ref_in_actor=True),
-        the reference policy is computed by the actor rollout worker instead of a separate
-        ref policy worker. This method handles both scenarios by checking the ref_in_actor flag.
-        Note: verl sets ref_in_actor=True when it detects LoRA configuration (e.g., lora_rank > 0 or lora_adapter_path is set).
-
-        Args:
-            batch: The data batch to compute reference log probabilities for.
-
-        Returns:
-            DataProto with reference log probabilities added.
-
-        Raises:
-            RuntimeError: If the required worker is not available.
-        """
-        if getattr(self, "ref_in_actor", False):
-            actor_worker = getattr(self, "actor_rollout_wg", None)
-            if actor_worker is None:
-                raise RuntimeError("actor_rollout_wg is required when ref_in_actor is True.")
-            return actor_worker.compute_ref_log_prob(batch)
-
-        ref_worker = getattr(self, "ref_policy_wg", None)
-        if ref_worker is None:
-            raise RuntimeError(
-                "Reference policy worker was not initialized. "
-                "Ensure `use_reference_policy` is enabled and the VERL config exposes the ref worker."
-            )
-        return ref_worker.compute_ref_log_prob(batch)
+        """Use VERL's padding conversion and LoRA-aware reference routing."""
+        return self._compute_ref_log_prob(batch)
 
     def _train_step(self, batch_dict: dict) -> dict:
         # Isolate in a separate method to automatically recycle the variables before validation.
@@ -247,49 +230,48 @@ class AgentLightningTrainer(RayPPOTrainer):
             # When agent mode is enabled, we read the batch as it is.
             gen_batch = batch
 
-            # generate a batch
-            with _timer("gen", timing_raw):
-                self.async_rollout_manager.wake_up()
-                self.agent_mode_daemon.set_up_data_and_server(
-                    gen_batch.non_tensor_batch, self.async_rollout_manager.server_addresses
-                )
-                self.agent_mode_daemon.run_until_all_finished()
-                batch, agent_metrics = self.agent_mode_daemon.get_train_data_batch(
-                    max_prompt_length=(
-                        self.config.agentlightning.trace_aggregator.trajectory_max_prompt_length
-                        if self.config.agentlightning.trace_aggregator.level.startswith("trajectory")
-                        else self.config.data.max_prompt_length
-                    ),
-                    max_response_length=(
-                        self.config.agentlightning.trace_aggregator.trajectory_max_response_length
-                        if self.config.agentlightning.trace_aggregator.level.startswith("trajectory")
-                        else self.config.data.max_response_length
-                    ),
-                    device=gen_batch.batch["fake_ids"].device,
-                    global_steps=self.global_steps,
-                )
-                metrics.update(agent_metrics)
-                self.agent_mode_daemon.clear_data_and_server()
-                self.async_rollout_manager.sleep()
+            with self._rollout_context():
+                # generate a batch
+                with _timer("gen", timing_raw):
+                    self.agent_mode_daemon.set_up_data_and_server(
+                        gen_batch.non_tensor_batch, self.llm_server_manager.server_addresses
+                    )
+                    self.agent_mode_daemon.run_until_all_finished()
+                    batch, agent_metrics = self.agent_mode_daemon.get_train_data_batch(
+                        max_prompt_length=(
+                            self.config.agentlightning.trace_aggregator.trajectory_max_prompt_length
+                            if self.config.agentlightning.trace_aggregator.level.startswith("trajectory")
+                            else self.config.data.max_prompt_length
+                        ),
+                        max_response_length=(
+                            self.config.agentlightning.trace_aggregator.trajectory_max_response_length
+                            if self.config.agentlightning.trace_aggregator.level.startswith("trajectory")
+                            else self.config.data.max_response_length
+                        ),
+                        device=gen_batch.batch["fake_ids"].device,
+                        global_steps=self.global_steps,
+                    )
+                    metrics.update(agent_metrics)
 
-            if self.config.algorithm.adv_estimator == AdvantageEstimator.REMAX:
-                with _timer("gen_max", timing_raw):
-                    gen_baseline_batch = deepcopy(gen_batch)
-                    gen_baseline_batch.meta_info["do_sample"] = False
-                    gen_baseline_output = self.async_rollout_manager.generate_sequences(gen_baseline_batch)
+                if self.config.algorithm.adv_estimator == AdvantageEstimator.REMAX:
+                    with _timer("gen_max", timing_raw):
+                        gen_baseline_batch = deepcopy(gen_batch)
+                        gen_baseline_batch.meta_info["do_sample"] = False
+                        gen_baseline_output = self.async_rollout_manager.generate_sequences(gen_baseline_batch)
 
-                    batch = batch.union(gen_baseline_output)
-                    reward_baseline_tensor = self.reward_fn(batch)
-                    reward_baseline_tensor = reward_baseline_tensor.sum(dim=-1)
+                        batch = batch.union(gen_baseline_output)
+                        reward_baseline_tensor = self.reward_loop_manager.compute_rm_score(batch).batch["rm_scores"]
+                        reward_baseline_tensor = reward_baseline_tensor.sum(dim=-1)
 
-                    batch.pop(batch_keys=list(gen_baseline_output.batch.keys()))
+                        batch.pop(batch_keys=list(gen_baseline_output.batch.keys()))
 
-                    batch.batch["reward_baselines"] = reward_baseline_tensor
+                        batch.batch["reward_baselines"] = reward_baseline_tensor
 
-                    del gen_baseline_batch, gen_baseline_output
+                        del gen_baseline_batch, gen_baseline_output
 
             # uid is used for algorithm like GRPO, should be aligned to data id
             batch.non_tensor_batch["uid"] = batch.non_tensor_batch["data_id_list"]
+            batch.meta_info["temperature"] = self.config.actor_rollout_ref.rollout.temperature
 
             if "response_mask" not in batch.batch:
                 batch.batch["response_mask"] = compute_response_mask(batch)
@@ -300,7 +282,7 @@ class AgentLightningTrainer(RayPPOTrainer):
             with _timer("reward", timing_raw):
                 # compute reward model score
                 if self.use_rm:
-                    reward_tensor = self.rm_wg.compute_rm_score(batch)
+                    reward_tensor = self.reward_loop_manager.compute_rm_score(batch)
                     batch = batch.union(reward_tensor)
 
                 reward_extra_infos_dict = {}
@@ -310,7 +292,8 @@ class AgentLightningTrainer(RayPPOTrainer):
 
             # recompute old_log_probs
             with _timer("old_log_prob", timing_raw):
-                old_log_prob = self.actor_rollout_wg.compute_log_prob(batch)
+                old_log_prob, old_log_prob_mfu = self._compute_old_log_prob(batch)
+                metrics["perf/mfu/actor_infer"] = old_log_prob_mfu
                 entropys = old_log_prob.batch["entropys"]
                 response_masks = batch.batch["response_mask"]
                 loss_agg_mode = self.config.actor_rollout_ref.actor.loss_agg_mode
@@ -329,7 +312,7 @@ class AgentLightningTrainer(RayPPOTrainer):
             # compute values
             if self.use_critic:
                 with _timer("values", timing_raw):
-                    values = self.critic_wg.compute_values(batch)
+                    values = self._compute_values(batch)
                     batch = batch.union(values)
 
             # for agent mode, unpad to calculate adv
@@ -397,7 +380,7 @@ class AgentLightningTrainer(RayPPOTrainer):
             # update critic
             if self.use_critic:
                 with _timer("update_critic", timing_raw):
-                    critic_output = self.critic_wg.update_critic(batch)
+                    critic_output = self._update_critic(batch)
                 critic_output_metrics = reduce_metrics(critic_output.meta_info["metrics"])
                 metrics.update(critic_output_metrics)
 
@@ -406,7 +389,7 @@ class AgentLightningTrainer(RayPPOTrainer):
                 # update actor
                 with _timer("update_actor", timing_raw):
                     batch.meta_info["multi_turn"] = self.config.actor_rollout_ref.rollout.multi_turn.enable
-                    actor_output = self.actor_rollout_wg.update_actor(batch)
+                    actor_output = self._update_actor(batch)
                 actor_output_metrics = reduce_metrics(actor_output.meta_info["metrics"])
                 metrics.update(actor_output_metrics)
 
@@ -447,6 +430,7 @@ class AgentLightningTrainer(RayPPOTrainer):
 
         # load checkpoint before doing anything
         self._load_checkpoint()
+        self.checkpoint_manager.update_weights(self.global_steps)
 
         assert self.async_rollout_mode, "If agent mode is enabled, async server must be enabled"
         if self.adapter is not None and not isinstance(self.adapter, TraceToTripletBase):
@@ -482,7 +466,7 @@ class AgentLightningTrainer(RayPPOTrainer):
 
         # perform validation before training
         # currently, we only support validation using the reward_function.
-        if self.val_reward_fn is not None and self.config.trainer.get("val_before_train", True):
+        if self.val_dataloader is not None and self.config.trainer.get("val_before_train", True):
             val_metrics = self._validate()
             assert val_metrics, f"{val_metrics=}"
             pprint(f"Initial validation metrics: {val_metrics}")
@@ -505,10 +489,11 @@ class AgentLightningTrainer(RayPPOTrainer):
 
                 # train step
                 metrics = self._train_step(batch_dict)
+                self.checkpoint_manager.update_weights(self.global_steps)
 
                 # validate
                 if (
-                    self.val_reward_fn is not None
+                    self.val_dataloader is not None
                     and self.config.trainer.test_freq > 0
                     and (is_last_step or self.global_steps % self.config.trainer.test_freq == 0)
                 ):
