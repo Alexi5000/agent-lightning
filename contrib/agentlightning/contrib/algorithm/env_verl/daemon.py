@@ -225,6 +225,16 @@ class EnvAgentModeDaemon:
 
         @app.route("/v1/<path:path>", methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS", "HEAD"])
         def proxy(path: str):  # type: ignore
+            allowed_hosts = {f"127.0.0.1:{self.proxy_port}", f"localhost:{self.proxy_port}"}
+            if self.proxy_port == 80:
+                allowed_hosts.update({"127.0.0.1", "localhost"})
+            if request.host.lower() not in allowed_hosts:
+                abort(403, description="Invalid proxy host.")
+            origin = request.headers.get("Origin")
+            if origin is not None and origin not in {f"http://{host}" for host in allowed_hosts}:
+                abort(403, description="Invalid proxy origin.")
+            if request.headers.get("Sec-Fetch-Site") == "cross-site":
+                abort(403, description="Cross-site proxy requests are not allowed.")
             if not self.backend_llm_server_addresses:
                 abort(503, description="No backend LLM servers available.")
 

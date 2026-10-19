@@ -56,9 +56,32 @@ def test_proxy_http_boundaries(source: str, monkeypatch: pytest.MonkeyPatch) -> 
         "threading": SimpleNamespace(Thread=Mock(return_value=SimpleNamespace(start=Mock()))),
         "__name__": __name__,
     }
-    owner = SimpleNamespace(backend_llm_server_addresses=["127.0.0.1:8001"], llm_timeout_seconds=5, proxy_port=0)
+    owner = SimpleNamespace(backend_llm_server_addresses=["127.0.0.1:8001"], llm_timeout_seconds=5, proxy_port=80)
     load_method(ROOT / source, "_start_proxy_server_v0", namespace)(owner)
     client = app.test_client()
+    for headers in [
+        {"Host": "attacker.example"},
+        {"Host": "localhost.attacker.example"},
+        {"Host": "localhost:9000"},
+        {"Origin": "https://attacker.example"},
+        {"Origin": "null"},
+        {"Origin": "http://localhost:9000"},
+        {"Sec-Fetch-Site": "cross-site"},
+    ]:
+        backend.reset_mock()
+        assert client.post("/v1/chat/completions", headers=headers, json={"model": "example"}).status_code == 403
+        backend.assert_not_called()
+    for headers in [{"Origin": "http://localhost"}, {"Host": "127.0.0.1:80"}, {}]:
+        assert client.get("/v1/models", headers=headers).status_code == 200
+    owner.proxy_port = 8123
+    assert (
+        client.get("/v1/models", headers={"Host": "127.0.0.1:8123", "Origin": "http://127.0.0.1:8123"}).status_code
+        == 200
+    )
+    backend.reset_mock()
+    assert client.get("/v1/models").status_code == 403
+    backend.assert_not_called()
+    owner.proxy_port = 80
     for path in [
         "../admin",
         "%2e%2e/admin",
