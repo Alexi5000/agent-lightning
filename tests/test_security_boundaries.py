@@ -11,7 +11,7 @@ import subprocess
 import time
 from pathlib import Path
 from types import SimpleNamespace
-from typing import Any
+from typing import Any, Callable
 from unittest.mock import AsyncMock, Mock
 from urllib.parse import quote, urlsplit
 
@@ -143,10 +143,13 @@ def test_legacy_proxy_only_listens_on_advertised_loopback(source: str, monkeypat
     def run_app(*, host: str, port: int, **kwargs: Any) -> None:
         listeners.append(make_server(host, port, app))
 
+    def immediate_thread(*, target: Callable[[], None], daemon: bool) -> SimpleNamespace:
+        return SimpleNamespace(start=target)
+
     monkeypatch.setattr(app, "run", run_app)
     namespace: dict[str, Any] = {
         "Flask": Mock(return_value=app),
-        "threading": SimpleNamespace(Thread=lambda target, daemon: SimpleNamespace(start=target)),
+        "threading": SimpleNamespace(Thread=immediate_thread),
         "__name__": __name__,
     }
     owner = SimpleNamespace(proxy_port=0)
