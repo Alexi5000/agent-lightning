@@ -163,20 +163,12 @@ const ensurePythonServer = async () => {
       });
     });
 
-    const ready = await waitForHealth(10000);
+    const ready = await waitForHealth(30000);
     if (ready) {
-      startedByGlobalSetup = true;
-      return;
-    }
-
-    const reused = await waitForHealth(3000);
-    if (reused) {
-      startedByGlobalSetup = false;
-      if (child.exitCode == null) {
-        child.kill('SIGTERM');
-        await exitPromise;
+      startedByGlobalSetup = child.exitCode == null;
+      if (!startedByGlobalSetup) {
+        pythonServerProcess = null;
       }
-      pythonServerProcess = null;
       return;
     }
 

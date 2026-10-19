@@ -10,7 +10,7 @@
     "eslint": "eslint .",
     "stylelint": "stylelint '**/*.css'",
     "prettier": "prettier --check \"**/*.{ts,tsx,mjs,cjs}\"",
-    "vitest": "vitest run --project unit",
+    "vitest": "node --test test-utils/global-setup.regression.mjs && vitest run --project unit",
     "vitest-storybook": "vitest run --project storybook",
     "storybook": "storybook dev -p 6006",
     "build-storybook": "storybook build",
