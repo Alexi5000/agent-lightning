@@ -1,5 +1,6 @@
 # Copyright (c) Microsoft. All rights reserved.
 
+from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, Mock, create_autospec
 
@@ -10,7 +11,9 @@ from tinker_cookbook.checkpoint_utils import CheckpointManager
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("kl_penalty_coef", [0.0, 0.1])
-async def test_modern_training_preserves_checkpoint_and_reference_clients(monkeypatch, tmp_path, kl_penalty_coef):
+async def test_modern_training_preserves_checkpoint_and_reference_clients(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, kl_penalty_coef: float
+) -> None:
     initial_sampler = object()
     updated_sampler = object()
     training_client = SimpleNamespace(

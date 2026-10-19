@@ -255,6 +255,10 @@ torch = [
   { index = "pypi", group = "torch-cu128" },
   { index = "pytorch-cpu", group = "torch-cpu" },
 ]
+torchvision = [
+  { index = "pypi", group = "torch-cu128" },
+  { index = "pytorch-cpu", group = "torch-cpu" },
+]
 
 [[tool.uv.index]]
 name = "pypi"
