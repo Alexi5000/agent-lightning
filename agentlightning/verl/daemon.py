@@ -407,6 +407,13 @@ class AgentModeDaemon:
             request_target = f"/v1/{encoded_path}"
             if request.args:
                 request_target += "?" + urlencode(list(request.args.items(multi=True)))
+            if not re.fullmatch(
+                r"/v1/(?:[A-Za-z0-9._~/-]|%[0-9A-Fa-f]{2})+(?:\?(?:[A-Za-z0-9._~&=+-]|%[0-9A-Fa-f]{2})*)?",
+                request_target,
+            ):
+                return Response(
+                    '{"error":"Invalid backend request target."}', status=400, content_type="application/json"
+                )
 
             # Copy client request headers, removing the Host header
             headers = {key: value for key, value in request.headers if key.lower() != "host"}
