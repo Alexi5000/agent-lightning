@@ -4,7 +4,7 @@
 
 # Agent Lightning⚡
 
-[![Unit Tests](https://github.com/microsoft/agent-lightning/actions/workflows/badge-unit.yml/badge.svg)](https://github.com/microsoft/agent-lightning/actions/workflows/badge-unit.yml)
+[![Fork CPU tests](https://github.com/Alexi5000/agent-lightning/actions/workflows/tests.yml/badge.svg?branch=main)](https://github.com/Alexi5000/agent-lightning/actions/workflows/tests.yml)
 [![Documentation](https://img.shields.io/badge/GitHub%20Pages-Documentation-blue)](https://microsoft.github.io/agent-lightning/)
 [![PyPI version](https://badge.fury.io/py/agentlightning.svg)](https://badge.fury.io/py/agentlightning)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
@@ -62,7 +62,7 @@ For the latest nightly build (cutting-edge features), you can install from Test 
 pip install --upgrade --index-url https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple/ --pre agentlightning
 ```
 
-Please refer to our [installation guide](https://microsoft.github.io/agent-lightning/stable/tutorials/installation/) for more details.
+Please refer to our [installation guide](docs/tutorials/installation.md) for more details.
 
 To start using Agent-lightning, check out our [documentation](https://microsoft.github.io/agent-lightning/) and [examples](./examples).
 
@@ -98,12 +98,13 @@ No rewrites, no lock-in, just a clear path from first rollout to steady improvem
 
 | Workflow | Status |
 |----------|--------|
-| CPU Tests | [![tests workflow status](https://github.com/microsoft/agent-lightning/actions/workflows/tests.yml/badge.svg)](https://github.com/microsoft/agent-lightning/actions/workflows/tests.yml) |
-| Full Tests | [![tests summary workflow status](https://github.com/microsoft/agent-lightning/actions/workflows/badge-unit.yml/badge.svg)](https://github.com/microsoft/agent-lightning/actions/workflows/badge-unit.yml) |
-| UI Tests | [![UI Tests](https://github.com/microsoft/agent-lightning/actions/workflows/dashboard.yml/badge.svg)](https://github.com/microsoft/agent-lightning/actions/workflows/dashboard.yml) |
-| Examples Integration | [![examples summary workflow status](https://github.com/microsoft/agent-lightning/actions/workflows/badge-examples.yml/badge.svg)](https://github.com/microsoft/agent-lightning/actions/workflows/badge-examples.yml) |
-| Latest Dependency Compatibility | [![latest summary workflow status](https://github.com/microsoft/agent-lightning/actions/workflows/badge-latest.yml/badge.svg)](https://github.com/microsoft/agent-lightning/actions/workflows/badge-latest.yml) |
-| Legacy Examples Compatibility | [![compat summary workflow status](https://github.com/microsoft/agent-lightning/actions/workflows/badge-compat.yml/badge.svg)](https://github.com/microsoft/agent-lightning/actions/workflows/badge-compat.yml) |
+| Fork CPU Tests | [![Fork CPU test workflow](https://github.com/Alexi5000/agent-lightning/actions/workflows/tests.yml/badge.svg?branch=main)](https://github.com/Alexi5000/agent-lightning/actions/workflows/tests.yml) |
+
+This badge reports this fork's CPU workflow, not upstream validation. At the October 20, 2026 audit,
+GitHub marked the fork's GPU, dashboard, example, and aggregate badge workflows as disabled.
+Their definitions remain in [`.github/workflows/`](.github/workflows/), but they do not establish
+current GPU, provider, dashboard, or compatibility validation. Inspect the [fork's Actions runs](https://github.com/Alexi5000/agent-lightning/actions)
+for individual results. Upstream documentation and research links elsewhere in this README retain their original attribution.
 
 ## ⚡ Citation
 
