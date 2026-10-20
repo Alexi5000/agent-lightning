@@ -22,12 +22,12 @@ from litellm.types.utils import Message as LitellmMessage
 from litellm.types.utils import ModelResponse
 from litellm.types.utils import TopLogprob as LitellmTopLogprob
 from litellm.utils import custom_llm_setup
-from pydantic import TypeAdapter
+from pydantic import ConfigDict, TypeAdapter
 from tinker.types import ModelInput, SampleResponse, SamplingParams
 from tinker_cookbook.renderers import Message as TinkerMessage
 from tinker_cookbook.renderers import Renderer
 from tinker_cookbook.renderers import ToolCall as TinkerToolCall
-from tinker_cookbook.renderers import get_renderer
+from tinker_cookbook.renderers import format_content_as_string, get_renderer
 from tinker_cookbook.tokenizer_utils import get_tokenizer
 from transformers import PreTrainedTokenizer
 
@@ -106,7 +106,9 @@ class TinkerLLM(CustomLLM):
         self.sampling_client = sampling_client
 
     def _canonicalize_messages(self, messages: Any) -> List[TinkerMessage]:
-        return TypeAdapter(List[TinkerMessage]).validate_python(messages)
+        return TypeAdapter(List[TinkerMessage], config=ConfigDict(arbitrary_types_allowed=True)).validate_python(
+            messages
+        )
         # Exception will be raised if validation fails
 
     def _validate_role(self, role: str) -> TypeGuard[Literal["assistant", "user", "system", "tool", "function"]]:
@@ -184,7 +186,7 @@ class TinkerLLM(CustomLLM):
                 if not self._validate_role(role):
                     assert False, "This should never happen"
                 # FIXME: The content should not be still there if tool call has been parsed.
-                content = parsed_response["content"]
+                content = format_content_as_string(parsed_response["content"])
                 # NOTE(yuge): I thought about adding this to make it more robust to empty responses,
                 # but later I found it's a configuration error in my renderer. So I think it's better
                 # to just log a warning and go with the default path.
@@ -208,7 +210,9 @@ class TinkerLLM(CustomLLM):
                 # Go with the default path
                 choices.append(
                     Choices(
-                        message=LitellmMessage(role="assistant", content=parsed_response["content"]),
+                        message=LitellmMessage(
+                            role="assistant", content=format_content_as_string(parsed_response["content"])
+                        ),
                         finish_reason=seq.stop_reason,
                         logprobs=logprobs,
                         token_ids=seq.tokens,

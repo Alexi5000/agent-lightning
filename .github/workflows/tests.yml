@@ -85,10 +85,17 @@ jobs:
           python - <<'PY'
           import json
           from pathlib import Path
-          paths = [str(p.resolve()) for env in (".venv-providers", ".venv-tinker") for p in Path(env).glob("lib/python*/site-packages")]
-          if len(paths) != 2:
-              raise RuntimeError("Both isolated type environments are required")
-          Path("pyrightconfig.ci.json").write_text(json.dumps({"extends": "./pyrightconfig.json", "extraPaths": paths}))
+          import sys
+          paths = []
+          for env in (".venv", ".venv-providers", ".venv-tinker"):
+              sites = list(Path(env).glob("lib/python*/site-packages"))
+              if len(sites) != 1:
+                  raise RuntimeError(f"Exactly one installed package directory required for {env}")
+              paths.append(str(sites[0].resolve()))
+          site = Path(f".venv-types/lib/python{sys.version_info.major}.{sys.version_info.minor}/site-packages")
+          site.mkdir(parents=True, exist_ok=True)
+          (site / "profiles.pth").write_text("\n".join(paths) + "\n")
+          Path("pyrightconfig.ci.json").write_text(json.dumps({"extends": "./pyrightconfig.json", "venvPath": ".", "venv": ".venv-types"}))
           PY
           uv run --locked --no-sync pyright -p pyrightconfig.ci.json
         if: matrix.setup != 'fast'

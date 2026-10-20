@@ -17,4 +17,4 @@ Before merge, validate the complete feature matrix:
 
 No GPU runner is configured. The earlier legacy profile is not a safe fallback: its known advisories are the reason for this migration. Keep this branch in draft until runtime and compatibility validation is complete.
 
-CI installs training, provider and Tinker environments separately. Full-project pyright receives the provider/Tinker site-packages as static search paths only; runtime tests use their own environments. These static search paths do not make the incompatible libraries a supported shared runtime.
+CI installs training, provider and Tinker environments separately. Full-project pyright uses a generated static-only `.venv-types` package path containing the training, provider and Tinker package directories in that order. This retains normal third-party stub resolution instead of treating installed dependencies as project sources. The generated directory has no interpreter and is never activated or used for runtime tests. Runtime tests use their own environments; the static search paths do not make the incompatible libraries a supported shared runtime.

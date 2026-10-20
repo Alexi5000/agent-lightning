@@ -82,3 +82,47 @@ async def test_modern_training_preserves_checkpoint_and_reference_clients(
     provider.update_sampling_client.assert_called_once_with(updated_sampler)
     proxy.stop.assert_awaited_once()
     assert logger.log_metrics.call_args.kwargs["step"] == 3
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("parse_success", [True, False])
+@pytest.mark.parametrize(
+    "content,expected",
+    [
+        ("answer", "answer"),
+        (
+            [{"type": "thinking", "thinking": "reason"}, {"type": "text", "text": "answer"}],
+            "<think>reason</think>\nanswer",
+        ),
+    ],
+)
+async def test_renderer_response_preserves_text_and_thinking(
+    content: object, expected: str, parse_success: bool
+) -> None:
+    from agl_tinker.llm import TinkerLLM
+    from tinker.types import ModelInput, SampledSequence, SampleResponse
+
+    renderer = Mock()
+    renderer.parse_response.return_value = ({"role": "assistant", "content": content}, parse_success)
+    renderer.build_generation_prompt.return_value = ModelInput.from_ints([1])
+    renderer.get_stop_sequences.return_value = []
+    sampling_client = Mock()
+    sampling_client.sample_async = AsyncMock(
+        return_value=SampleResponse(sequences=[SampledSequence(stop_reason="stop", sequence_id="test")])
+    )
+    llm = TinkerLLM(model_name="test", renderer=renderer, tokenizer=Mock(), sampling_client=sampling_client)
+    result = await llm.acompletion(messages=[{"role": "user", "content": "question"}])
+    assert result.choices[0].message.content == expected
+
+
+@pytest.mark.asyncio
+async def test_renderer_rejects_invalid_input_before_sampling() -> None:
+    from agl_tinker.llm import TinkerLLM
+    from pydantic import ValidationError
+
+    sampling_client = Mock()
+    sampling_client.sample_async = AsyncMock()
+    llm = TinkerLLM(model_name="test", renderer=Mock(), tokenizer=Mock(), sampling_client=sampling_client)
+    with pytest.raises(ValidationError):
+        await llm.acompletion(messages=[{"role": "user", "content": [{"type": "image", "image": 42}]}])
+    sampling_client.sample_async.assert_not_called()

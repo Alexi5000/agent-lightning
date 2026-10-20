@@ -17,7 +17,7 @@ try:
     from vllm.engine.arg_utils import AsyncEngineArgs
     from vllm.entrypoints.cli.serve import ServeSubcommand
     from vllm.model_executor.model_loader import get_model_loader
-    from vllm.utils import FlexibleArgumentParser
+    from vllm.utils.argparse_utils import FlexibleArgumentParser
 
     VLLM_AVAILABLE = True  # type: ignore
     VLLM_VERSION = tuple(int(v) for v in vllm.__version__.split("."))
