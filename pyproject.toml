@@ -131,7 +131,7 @@ trl = [
   "datasets; platform_machine == 'x86_64'",
   "transformers==5.10.4; platform_machine == 'x86_64'",
   "trl>=0.23,<0.24; platform_machine == 'x86_64'",
-  "kernels; platform_machine == 'x86_64'",
+  "kernels>=0.12.3,<0.13; platform_machine == 'x86_64'",
   "vllm; platform_machine == 'x86_64'",
 ]
 
@@ -337,6 +337,7 @@ include = '\.pyi?$'
 extend-exclude = '''
 /(
   _version\.py
+  | \.venv-[^/]+
 )
 '''
 
@@ -345,6 +346,7 @@ profile = "black"
 line_length = 120
 known_first_party = ["agentlightning"]
 extend_skip_glob = [
+  ".venv-*/**",
   "data/**",
   "_version.py",
 ]

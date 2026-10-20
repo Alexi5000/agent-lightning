@@ -830,7 +830,7 @@ trl = [
     { name = "agentops", marker = "python_full_version >= '3.11' and python_full_version < '3.13'", specifier = ">=0.4.21" },
     { name = "bitsandbytes", marker = "python_full_version >= '3.11' and python_full_version < '3.13' and platform_machine == 'x86_64'" },
     { name = "datasets", marker = "python_full_version >= '3.11' and python_full_version < '3.13' and platform_machine == 'x86_64'" },
-    { name = "kernels", marker = "python_full_version >= '3.11' and python_full_version < '3.13' and platform_machine == 'x86_64'" },
+    { name = "kernels", marker = "python_full_version >= '3.11' and python_full_version < '3.13' and platform_machine == 'x86_64'", specifier = ">=0.12.3,<0.13" },
     { name = "langchain-openai", marker = "python_full_version >= '3.11' and python_full_version < '3.13'", specifier = ">=1.1.14,<1.2" },
     { name = "litellm", extras = ["proxy"], marker = "python_full_version >= '3.11' and python_full_version < '3.13'", specifier = ">=1.88.6,<1.104" },
     { name = "litellm", extras = ["proxy"], marker = "python_full_version >= '3.11' and python_full_version < '3.13' and platform_machine == 'x86_64'", specifier = ">=1.88.6,<1.104" },
