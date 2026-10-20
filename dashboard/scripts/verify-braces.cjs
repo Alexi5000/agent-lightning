@@ -1,3 +1,5 @@
+// Copyright (c) Microsoft. All rights reserved.
+
 const assert = require('node:assert/strict');
 const { createRequire } = require('node:module');
 const { readFileSync } = require('node:fs');
