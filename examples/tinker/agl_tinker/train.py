@@ -93,6 +93,7 @@ class Config:
     # Number of optimizer steps per training iteration.
     # Useful for very large batch sizes.
     num_substeps: int = 1
+    loss_fn_config: dict[str, Any] | None = None
 
     wandb_project: str | None = None
     wandb_name: str | None = None
@@ -140,8 +141,18 @@ async def do_sync_training(
 
     # Initial sampling client
     logger.info(f"Creating sampling client with training client {training_client} and start batch {start_batch}")
+    checkpoint_mgr = checkpoint_utils.CheckpointManager(
+        training_client=training_client,
+        service_client=service_client,
+        log_path=cfg.log_path,
+        save_every=cfg.save_every,
+        ttl_seconds=None,
+    )
     sampling_client, _ = await save_checkpoint_and_get_sampling_client(
-        training_client, start_batch, cfg.log_path, cfg.save_every
+        training_client, checkpoint_mgr, start_batch, start_batch=start_batch
+    )
+    kl_reference_client = (
+        service_client.create_sampling_client(base_model=cfg.model_name) if cfg.kl_penalty_coef > 0 else None
     )
     logger.info(f"Creating renderer with name {cfg.renderer_name}")
     renderer = get_renderer(cfg.renderer_name, tokenizer)
@@ -207,7 +218,8 @@ async def do_sync_training(
             cfg,
             i_batch,
             training_client,
-            service_client,
+            checkpoint_mgr,
+            kl_reference_client,
             tokenizer,
             env_group_builders_P,
             trajectory_groups_P,
@@ -257,7 +269,7 @@ async def main_training_loop(
 
     resume_info = checkpoint_utils.get_last_checkpoint(cfg.log_path)
     if resume_info:
-        start_batch = resume_info["batch"]
+        start_batch = resume_info.batch
     else:
         start_batch = 0
 
@@ -266,7 +278,7 @@ async def main_training_loop(
     logger.info(f"Creating training client with model name {cfg.model_name} and rank {cfg.lora_rank}")
     training_client = await service_client.create_lora_training_client_async(cfg.model_name, rank=cfg.lora_rank)
 
-    load_state_path: str | None = resume_info["state_path"] if resume_info else cfg.load_checkpoint_path
+    load_state_path: str | None = resume_info.state_path if resume_info else cfg.load_checkpoint_path
     if load_state_path:
         future = await training_client.load_state_async(load_state_path)
         _ = await future.result_async()

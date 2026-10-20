@@ -16,15 +16,16 @@ from typing import Generic, List, Optional, Sequence, TypeVar
 
 import chz
 import pandas as pd
+from tinker_cookbook.completers import StopCondition
 from tinker_cookbook.rl.types import (
     Action,
+    ActionExtra,
     Env,
     EnvGroupBuilder,
     Observation,
     RLDataset,
     RLDatasetBuilder,
     StepResult,
-    StopCondition,
 )
 
 from agentlightning import Dataset
@@ -57,7 +58,7 @@ class AGLDummyEnv(Env, Generic[T_task]):
     async def initial_observation(self) -> tuple[Observation, StopCondition]:
         raise NotImplementedError("This method is not implemented for AGLDummyEnv")
 
-    async def step(self, action: Action) -> StepResult:
+    async def step(self, action: Action, *, extra: ActionExtra | None = None) -> StepResult:
         raise NotImplementedError("This method is not implemented for AGLDummyEnv")
 
 

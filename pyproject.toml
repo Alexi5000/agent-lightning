@@ -15,9 +15,9 @@ dependencies = [
   "uvicorn",
   "fastapi",
   "aiohttp",
-  "opentelemetry-api>=1.35,<1.39",
-  "opentelemetry-sdk>=1.35,<1.39",
-  "opentelemetry-exporter-otlp>=1.35,<1.39",
+  "opentelemetry-api>=1.39.1,<1.43",
+  "opentelemetry-sdk>=1.39.1,<1.43",
+  "opentelemetry-exporter-otlp>=1.39.1,<1.43",
   "litellm[proxy]>=1.88.6,<1.104",
   "pydantic>=2.11",
   "email-validator>=2.3",
@@ -36,8 +36,8 @@ apo = [
 # It's not recommended to use agentlightning[verl] to install VERL and its dependencies.
 # though it's listed here for completeness.
 verl = [
-  "verl>=0.5.0,<0.7; platform_machine == 'x86_64'",
-  "vllm==0.11.0; platform_machine == 'x86_64'", # Due to interface change of ExternalZeroMQDistributedExecutor
+  "verl==0.9.1; platform_machine == 'x86_64' and python_version >= '3.11' and python_version < '3.13'",
+  "vllm==0.26.0; platform_machine == 'x86_64' and python_version >= '3.11' and python_version < '3.13'",
 ]
 
 weave = [
@@ -101,15 +101,10 @@ torch-cu128 = [
 torch-stable = [
   {include-group = "core-stable"},
   # This can work for both CPU and GPU.
-  "torch==2.8.0; platform_machine == 'x86_64'",
-  "torchvision==0.23.0; platform_machine == 'x86_64'",
-  # https://github.com/huggingface/transformers/issues/42369
-  "transformers>=4.55.0,<5,!=4.57.2; platform_machine == 'x86_64'",
-  # vLLM 0.11.1 requires PyTorch 2.9.0, which is incompatible with flash-attn
-  # https://github.com/Dao-AILab/flash-attention/issues/1967
-  # Similar issues with vLLM 0.11.2 and 0.12.0
-  "vllm==0.11.0; platform_machine == 'x86_64'",
-  # LiteLLM can then be upgraded with new vLLM
+  "torch==2.11.0; platform_machine == 'x86_64'",
+  "torchvision==0.26.0; platform_machine == 'x86_64'",
+  "transformers==5.10.4; platform_machine == 'x86_64'",
+  "vllm==0.26.0; platform_machine == 'x86_64' and python_version >= '3.11' and python_version < '3.13'",
   "litellm[proxy]>=1.88.6,<1.104; platform_machine == 'x86_64'",
 ]
 
@@ -121,7 +116,7 @@ torch-gpu-stable = [
   {include-group = "torch-cu128"},
   "flash-attn>=2.8.3; platform_machine == 'x86_64'",
   "tensordict>=0.9.1; platform_machine == 'x86_64'",
-  "verl>=0.6.0,<0.7; platform_machine == 'x86_64'",
+  "verl==0.9.1; platform_machine == 'x86_64' and python_version >= '3.11' and python_version < '3.13'",
 ]
 
 # For the TRL/Unsloth example.
@@ -134,17 +129,19 @@ trl = [
   "bitsandbytes; platform_machine == 'x86_64'",
   "peft; platform_machine == 'x86_64'",
   "datasets; platform_machine == 'x86_64'",
-  "transformers<5; platform_machine == 'x86_64'",
+  "transformers==5.10.4; platform_machine == 'x86_64'",
   "trl>=0.23,<0.24; platform_machine == 'x86_64'",
-  "kernels; platform_machine == 'x86_64'",
+  "kernels>=0.12.3,<0.13; platform_machine == 'x86_64'",
   "vllm; platform_machine == 'x86_64'",
 ]
 
 # For Tinker integration.
 tinker = [
-  {include-group = "torch-stable"},
-  "tinker>=0.2.2,<0.8; platform_machine == 'x86_64'",
-  "tinker_cookbook==0.1.0; platform_machine == 'x86_64'",
+  {include-group = "core-stable"},
+  "torch==2.11.0; platform_machine == 'x86_64'",
+  "transformers==5.5.4; platform_machine == 'x86_64'",
+  "tinker>=0.23.0; platform_machine == 'x86_64'",
+  "tinker_cookbook==0.5.7; platform_machine == 'x86_64'",
   "wandb; platform_machine == 'x86_64'",
 ]
 
@@ -159,8 +156,8 @@ image = [
 
 # Agent-related dependencies.
 autogen = [
-  "autogen-agentchat",
-  "autogen-ext[openai]",
+  "autogen-agentchat>=0.7.5",
+  "autogen-ext[openai]>=0.7.5",
   "mcp>=1.10.0",
   # UV is required now by default.
   # No need to include UV here.
@@ -211,6 +208,11 @@ agents = [
 [tool.uv]
 required-version = ">=0.9.9"
 conflicts = [
+  [{group = "autogen"}, {group = "torch-stable"}],
+  [{group = "autogen"}, {extra = "verl"}],
+  [{group = "autogen"}, {group = "trl"}],
+  [{group = "tinker"}, {group = "torch-stable"}],
+  [{group = "tinker"}, {extra = "verl"}],
   [
     { group = "torch-cpu" },
     { group = "torch-cu128" },
@@ -226,7 +228,6 @@ dependency-metadata = [
 ]
 
 override-dependencies = [
-  "xgrammar>=0.1.32,<0.1.33",
   "fsspec[http]>=2026.6.0,<2026.7",
   "fastapi[standard]>=0.140.0,<0.141",
   "starlette>=1.3.1,<1.4",
@@ -254,6 +255,10 @@ torch = [
   { index = "pypi", group = "torch-cu128" },
   { index = "pytorch-cpu", group = "torch-cpu" },
 ]
+torchvision = [
+  { index = "pypi", group = "torch-cu128" },
+  { index = "pytorch-cpu", group = "torch-cpu" },
+]
 
 [[tool.uv.index]]
 name = "pypi"
@@ -275,7 +280,10 @@ flash-attn = [
 ]
 
 [tool.uv.dependency-groups]
-tinker = {requires-python = ">=3.11,<3.14"}
+tinker = {requires-python = ">=3.11,<3.13"}
+torch-stable = {requires-python = ">=3.11,<3.13"}
+torch-gpu-stable = {requires-python = ">=3.11,<3.13"}
+trl = {requires-python = ">=3.11,<3.13"}
 
 [build-system]
 requires = ["hatchling"]
@@ -329,6 +337,7 @@ include = '\.pyi?$'
 extend-exclude = '''
 /(
   _version\.py
+  | \.venv-[^/]+
 )
 '''
 
@@ -337,6 +346,7 @@ profile = "black"
 line_length = 120
 known_first_party = ["agentlightning"]
 extend_skip_glob = [
+  ".venv-*/**",
   "data/**",
   "_version.py",
 ]
