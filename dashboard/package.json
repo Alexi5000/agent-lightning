@@ -4,7 +4,8 @@
   "version": "0.3.1",
   "scripts": {
     "dev": "vite",
-    "build": "tsc && vite build",
+    "build": "node scripts/verify-braces.cjs && tsc && vite build",
+    "test:security": "node scripts/verify-braces.cjs",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
     "eslint": "eslint .",
@@ -31,6 +32,7 @@
     "react-router-dom": "^7.9.4"
   },
   "devDependencies": {
+    "braces": "file:vendor/braces-3.0.3.tgz",
     "@eslint/js": "^9.37.0",
     "@ianvs/prettier-plugin-sort-imports": "^4.7.0",
     "@storybook/addon-themes": "^10.6.2",
@@ -73,6 +75,7 @@
     "@vitest/coverage-v8": "4.1.12"
   },
   "overrides": {
+    "braces": "$braces",
     "dompurify": "^3.4.17"
   }
 }
