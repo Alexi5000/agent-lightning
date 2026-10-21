@@ -167,9 +167,9 @@ jobs:
           enable-cache: true
           python-version: '3.12'
       - name: Sync locked dataset dependencies
-        run: uv sync --frozen --no-default-groups --group dev --group image
+        run: uv sync --frozen --no-default-groups --group dev --group image --group sql
       - name: Verify template sandbox and dataset storage
-        run: uv run --no-sync pytest -v tests/test_fsspec_compat.py tests/test_security_boundaries.py
+        run: uv run --no-sync pytest -v tests/test_fsspec_compat.py tests/test_security_boundaries.py tests/test_nltk_security.py
 
   test:
     strategy:

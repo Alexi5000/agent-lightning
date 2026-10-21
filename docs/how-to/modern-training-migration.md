@@ -2,7 +2,7 @@
 
 Status: draft, 2026-10-19. This branch is not ready for release or merge.
 
-The local training profile resolves VERL 0.9.1, vLLM 0.26.0, Transformers 5.10.4 and Torch 2.11.0 on x86-64 Python 3.11–3.12. Tinker is a separate environment using Cookbook 0.5.7 and Transformers 5.5.4. Do not install both profiles together. AutoGen runners also require a separate provider environment: AutoGen 0.7.5 requires protobuf 5, while vLLM 0.26 requires protobuf 6 through CUTLASS. Explicit conflicts prevent silently downgrading AutoGen to an obsolete package. Core Python support is unchanged. The Tinker Transformers pin and isolated Chroma/NLTK dependencies still have unresolved advisories; this candidate does not claim a clean dependency audit.
+The local training profile resolves VERL 0.9.1, vLLM 0.26.0, Transformers 5.10.4 and Torch 2.11.0 on x86-64 Python 3.11–3.12. Tinker is a separate environment using Cookbook 0.5.7 and Transformers 5.5.4. Do not install both profiles together. AutoGen runners also require a separate provider environment: AutoGen 0.7.5 requires protobuf 5, while vLLM 0.26 requires protobuf 6 through CUTLASS. Explicit conflicts prevent silently downgrading AutoGen to an obsolete package. Core Python support is unchanged. The Tinker Transformers pin and isolated Chroma dependency still have unresolved advisories; this candidate does not claim a clean dependency audit.
 
 The trainer uses VERL's unified actor/critic worker registration, fused reference routing, reward-loop manager, replica registry, LLM-server addresses and checkpoint-engine weight synchronization. Upstream conversion helpers retain padding, LoRA reference semantics and training metadata at TensorDict RPC boundaries. Rollout cleanup releases inference memory on errors.
 
