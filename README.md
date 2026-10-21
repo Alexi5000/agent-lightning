@@ -15,6 +15,38 @@
 
 Join our [Discord community](https://discord.gg/RYk7CdvDR7) to connect with other users and contributors.
 
+## ⚡ Why this fork exists
+
+**What it does.** Agent Lightning lets an agent written with any framework (LangChain, OpenAI Agents SDK, AutoGen, CrewAI, Microsoft Agent Framework, or plain Python) be optimized without rewriting it: a tracer or the `agl.emit_*` helpers turn prompts, tool calls, and rewards into spans in the LightningStore, and an algorithm (reinforcement learning through VERL, automatic prompt optimization, or supervised fine-tuning) reads those spans and posts updated prompts or policy weights back through the Trainer. This fork keeps the 0.3.1-era codebase with hardened, CPU-validated dependency profiles.
+
+**Who it serves.** Engineers who want to evaluate agent training or prompt optimization on a dependency set that resolves and passes tests on CPU-only Python 3.10 to 3.13 before committing GPU time, and operators who need the legacy integrations (LiteLLM proxy, CrewAI q20 example, VERL v0 HTTP proxy) kept behind explicit, documented boundaries rather than silently installed.
+
+**Why Alex forked it.** The fork was created on 2025-11-01 (GitHub `created_at`). In May 2026 it staged three upstream pull requests to microsoft/agent-lightning that remain open: [#528](https://github.com/microsoft/agent-lightning/pull/528) (missing `gts` argument in `_dump_generations`), [#529](https://github.com/microsoft/agent-lightning/pull/529) (pyright errors in Weave instrumentation), and [#530](https://github.com/microsoft/agent-lightning/pull/530) (structured logging in the VERL daemon); their source branches are retained here as `pr/*`. The first fork-only commit on `main` (`0a3c682c`, 2026-10-18, PR #1 "fix: restore CPU validation and update dashboard and example dependencies") records the motivation in its body: "Repair CPU dependency resolution for Python 3.10–3.13, preserve the Weave/MCP/OpenAI/training APIs used by this release", with 1,085 local CPU tests as the acceptance bar. The 26 fork commits that followed between 2026-10-18 and 2026-10-20 are all dependency and boundary hardening: patched multipart, cryptography, FastAPI/Starlette, and json-repair overrides with offline compatibility tests (#4 to #9), proxy path and origin checks (#13 to #17, #21 to #23), retirement of legacy LiteLLM and OpenAI profiles and isolation of CrewAI and ChromaDB into an explicit legacy requirements file (#18 to #20, PR #19: "exposure isolation, not a claim that Chroma is patched"), a draft VERL 0.9.1 training migration (#24), and badge scoping to the fork's own CPU workflow (#26).
+
+**Real-world use case (2025–2026 evidence).** **Proposed use case.** A team that already runs an agent in production wants to collect its traces and try reinforcement learning on them without changing the agent code. The approach is the one described in the Agent Lightning paper[^1] and in the vLLM team's October 2025 write-up on returning token IDs through the OpenAI-compatible API to avoid retokenization drift during agent RL[^2]. Upstream has since shipped the 1.0 line (v1.0.2 on 2026-09-29)[^3], while this fork stays on the 0.3.1 line so that its CPU validation and security overrides remain reproducible. What this repository verifies today: the `CPU Test` workflow (lint on fast/slow/next matrices, store, AgentOps, Weave, LLM-proxy, utilities, and other test shards on Python 3.10 to 3.13, dashboard lint and build, strict MkDocs build, and filesystem security compatibility) passes on `main` at `14368c0f` (runs on 2026-10-20 and 2026-10-21). GPU training, live provider calls, and the Tinker and example workflows are disabled in this fork and are not validated here. The retained CrewAI example depends on ChromaDB releases that carry unpatched critical advisories published in 2026[^4]; see the Security section before installing it.
+
+[^1]: Luo et al., "Agent Lightning: Train ANY AI Agents with Reinforcement Learning", arXiv:2508.03680, submitted 2025-08-05. https://arxiv.org/abs/2508.03680
+[^2]: vLLM blog, "No More Retokenization Drift: Returning Token IDs via the OpenAI Compatible API Matters in Agent RL", published 2025-10-22. https://blog.vllm.ai/2025/10/22/agent-lightning.html
+[^3]: microsoft/agent-lightning, "v1.0.2" release notes, published 2026-09-29. https://github.com/microsoft/agent-lightning/releases/tag/v1.0.2
+[^4]: GitHub Advisory Database, "GHSA-f4j7-r4q5-qw2c: ChromaDB pre-authentication code injection", published 2026-05-18. https://github.com/advisories/GHSA-f4j7-r4q5-qw2c
+
+## ⚡ Upstream
+
+- Upstream project: [microsoft/agent-lightning](https://github.com/microsoft/agent-lightning), licensed under the [MIT License](LICENSE). The license file is preserved unchanged and nothing in this fork is relicensed. Microsoft's `SECURITY.md`, `RAI_README.md`, CLA, Code of Conduct, and trademark notices below are upstream's and are kept as written.
+- Fork created: 2025-11-01. Default branch: `main`. Maintained by Alex Cinovoj, Founder & CTO of TechTide AI (GitHub `Alexi5000`).
+- Position relative to upstream `main` at 2026-10-21: 26 commits ahead, 421 commits behind (`gh api compare microsoft:main...main`). Upstream released v1.0.0 (2026-08-17) through v1.0.2 (2026-09-29); this fork remains on the 0.3.1 line and does not include those releases.
+- Upstream contributions from this fork: PRs [#528](https://github.com/microsoft/agent-lightning/pull/528), [#529](https://github.com/microsoft/agent-lightning/pull/529), and [#530](https://github.com/microsoft/agent-lightning/pull/530) (opened 2026-05-21, open).
+- Documentation: the Documentation badge above points at upstream's site, which documents the upstream 1.x line. Fork-specific installation notes are in the Installation section below and in [`docs/how-to/modern-training-migration.md`](docs/how-to/modern-training-migration.md).
+
+**What changed in this fork** (`git log upstream/main..origin/main`: 26 commits; `git diff --stat`: 109 files, +20,920 / -13,011 lines, most of it `uv.lock`):
+
+- CPU dependency profiles that resolve on Python 3.10 to 3.13, with dashboard and WebShop recipe updates and formatter alignment (#1 to #3).
+- Security overrides and offline compatibility tests for the legacy HTTP, SSO, cryptography, multipart, grammar, and filesystem-template paths (#4 to #9, #13).
+- Proxy hardening: encoded path grammar, backend authority validation, loopback binding, cross-origin rejection (#14 to #17, #21 to #23).
+- Dependency profile changes: patched LiteLLM floor, retirement of legacy LiteLLM/OpenAI profiles, migration of OpenAI and LangChain, and isolation of CrewAI and ChromaDB into `examples/tinker/legacy-crewai/requirements.txt` (#12, #16, #18 to #20).
+- Draft migration of split training environments to VERL 0.9.1, vLLM 0.26, Transformers 5.10.4, and Torch 2.11, not release-ready (#24).
+- Dashboard braces parser recursion bound (#25) and README badge scoping to the fork's CPU workflow (#26).
+
 ## ⚡ Core Features
 
 - Turn your agent into an optimizable beast with **ZERO CODE CHANGE** (almost)! 💤
@@ -78,9 +110,9 @@ To start using Agent-lightning, check out our [documentation](https://microsoft.
 
 ## ⚡ Community Projects
 
-- [DeepWerewolf](https://github.com/af-74413592/DeepWerewolf) — A case study of agent RL training for the Chinese Werewolf game built with AgentScope and Agent Lightning.
-- [AgentFlow](https://agentflow.stanford.edu/) — A modular multi-agent framework that combines planner, executor, verifier, and generator agents with the Flow-GRPO algorithm to tackle long-horizon, sparse-reward tasks.
-- [Youtu-Agent](https://github.com/TencentCloudADP/Youtu-agent) — Youtu-Agent lets you build and train your agent with ease. Built with [a modified branch](https://github.com/microsoft/agent-lightning/tree/contrib/youtu-agent-lightning) of Agent Lightning, Youtu-Agent has verified up to 128 GPUs RL training on maths/code and search capabilities with steady convergence. Also check [the recipe](https://github.com/TencentCloudADP/youtu-agent/tree/rl/agl) and their blog [*Stop Wrestling with Your Agent RL: How Youtu-Agent Achieved Stable, 128-GPU Scaling Without Breaking a Sweat*](https://spotted-coconut-df8.notion.site/Stop-Wrestling-with-Your-Agent-RL-How-Youtu-Agent-Achieved-Stable-128-GPU-Scaling-Without-Breaking-2ca5e8f089ba80539a98c582b65e0233).
+- [DeepWerewolf](https://github.com/af-74413592/DeepWerewolf): A case study of agent RL training for the Chinese Werewolf game built with AgentScope and Agent Lightning.
+- [AgentFlow](https://agentflow.stanford.edu/): A modular multi-agent framework that combines planner, executor, verifier, and generator agents with the Flow-GRPO algorithm to tackle long-horizon, sparse-reward tasks.
+- [Youtu-Agent](https://github.com/TencentCloudADP/Youtu-agent): Youtu-Agent lets you build and train your agent with ease. Built with [a modified branch](https://github.com/microsoft/agent-lightning/tree/contrib/youtu-agent-lightning) of Agent Lightning, Youtu-Agent has verified up to 128 GPUs RL training on maths/code and search capabilities with steady convergence. Also check [the recipe](https://github.com/TencentCloudADP/youtu-agent/tree/rl/agl) and their blog [*Stop Wrestling with Your Agent RL: How Youtu-Agent Achieved Stable, 128-GPU Scaling Without Breaking a Sweat*](https://spotted-coconut-df8.notion.site/Stop-Wrestling-with-Your-Agent-RL-How-Youtu-Agent-Achieved-Stable-128-GPU-Scaling-Without-Breaking-2ca5e8f089ba80539a98c582b65e0233).
 
 ## ⚡ Architecture
 
@@ -105,6 +137,28 @@ GitHub marked the fork's GPU, dashboard, example, and aggregate badge workflows 
 Their definitions remain in [`.github/workflows/`](.github/workflows/), but they do not establish
 current GPU, provider, dashboard, or compatibility validation. Inspect the [fork's Actions runs](https://github.com/Alexi5000/agent-lightning/actions)
 for individual results. Upstream documentation and research links elsewhere in this README retain their original attribution.
+
+## ⚡ Security
+
+Upstream's reporting policy is in [SECURITY.md](SECURITY.md); it applies to microsoft/agent-lightning, not to this fork. For issues specific to this fork, open a private security advisory on this repository.
+
+Open Dependabot alerts on this fork at 2026-10-21, read from the GitHub GraphQL API before the change in this revision: 30 (5 critical, 11 high, 12 moderate, 2 low). No alert has been dismissed. Status by package:
+
+| Package (manifest) | Alerts | Status in this fork |
+|---|---|---|
+| certifi 2026.7.22 (`uv.lock`) | GHSA-6q48-6c7w-9gw2 (critical) | Upgraded to 2026.10.19 in this revision with `uv lock --upgrade-package certifi`. |
+| uv 0.13.1 (`uv.lock`, pulled in by hatch) | GHSA-hq85-5cpj-mr62 (critical) | Upgraded to 0.13.4 in this revision with `uv lock --upgrade-package uv`. |
+| chromadb 1.1.1 (`examples/tinker/legacy-crewai/requirements.txt`) | GHSA-f4j7-r4q5-qw2c, GHSA-36p7-vc44-83pf (critical); GHSA-2wm9-hf6c-p5cr, GHSA-xph7-9rjv-w5fr (high) | Known upstream advisories with no fixed release as of 2026-10-20 (affected range through 1.5.9, the latest ChromaDB). Existing mitigation: PR #19 removed CrewAI and ChromaDB from the root lock and every default group; the pin lives only in an explicit legacy requirements file that is installed by the non-fast lint matrix and the disabled Tinker example workflow, and [`examples/tinker/README.md`](examples/tinker/README.md) requires a disposable isolated environment. CrewAI 1.6.1 and the latest CrewAI still require ChromaDB, so upgrading CrewAI does not close these. |
+| nltk 3.10.3 (`uv.lock`, `sql` group) | GHSA-8mgp-746c-j5xp (high) | Known upstream advisory with no fixed release as of 2026-10-20. NLTK 3.10.4 was published on 2026-10-21 with path-sandbox changes, but the advisory had not been updated with a patched version when this was written. No fork-specific mitigation exists; the `sql` group is opt-in. |
+| transformers 5.5.4 (`uv.lock`, `tinker` group) | GHSA-x9r9-c232-4q39 (high, no fixed release); GHSA-xrqw-3rrv-vx5w (high, fixed in 5.10.0) | The `tinker` group pins Transformers 5.5.4 because `tinker-cookbook` 0.5.7 declares `transformers<=5.5.4`. The non-Tinker training profile already resolves Transformers 5.10.4. Closing both alerts requires a Tinker Cookbook release that lifts the cap. |
+| Pillow 12.3.0 (`uv.lock`) | 9 alerts, fixed in 13.0.0 | The lock already resolves Pillow 13.0.0 for Python 3.11 and later; Pillow 13.0.0 requires Python 3.11 or newer, so the Python 3.10 resolution keeps 12.3.0. Closing these requires dropping Python 3.10 support, which is a project decision not made in this revision. |
+| vllm 0.26.0, torch 2.11.0, datasets 4.8.5 (`uv.lock`, training groups) | 10 vllm (moderate/low, fixed in 0.27.0 to 0.30.0), torch GHSA-rrmf-rvhw-rf47 (low, fixed in 2.13.0), datasets GHSA-379c-qx7v-6h59 (moderate, fixed in 5.0.1) | Require a coordinated GPU runtime migration: VERL 0.9.1 pins `torch==2.11.0` and `vllm==0.24.0` in its `vllm` extra, and Unsloth 2026.10.6 declares `datasets<5.0.0`. Not attempted here; the draft migration in #24 is the tracking point. |
+
+`uv.lock` is the manifest GitHub scans; many of the entries above are only installed when the corresponding optional extra or dependency group is selected.
+
+### Legacy CrewAI integration isolation
+
+The root lock and `agents` group no longer install CrewAI or ChromaDB. The q20 integration remains in `examples/tinker`, with an explicit known-vulnerable legacy environment described in its README. It is not part of the supported default install or a security-clean profile. Its requirements remain committed for scanner visibility.
 
 ## ⚡ Citation
 
@@ -141,7 +195,3 @@ This project has been evaluated and certified to comply with the Microsoft Respo
 ## ⚡ License
 
 This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
-
-### Legacy CrewAI integration isolation
-
-The root lock and `agents` group no longer install CrewAI or ChromaDB. The q20 integration remains in `examples/tinker`, with an explicit known-vulnerable legacy environment described in its README. It is not part of the supported default install or a security-clean profile. Its requirements remain committed for scanner visibility.
