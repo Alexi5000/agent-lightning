@@ -183,7 +183,7 @@ langchain = [
 ]
 sql = [
   "sqlparse",
-  "nltk",
+  "nltk>=3.10.4",
 ]
 rag = [
   "fastmcp>=2.13.1",
