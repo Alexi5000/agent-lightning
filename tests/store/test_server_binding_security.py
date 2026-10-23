@@ -1,3 +1,5 @@
+# Copyright (c) Microsoft. All rights reserved.
+
 from dataclasses import asdict
 from typing import Any, Dict
 from unittest.mock import AsyncMock, patch
