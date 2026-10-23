@@ -3,7 +3,7 @@ name = "agentlightning"
 version = "0.3.1"
 description = "Agent-lightning is the absolute trainer to light up AI agents."
 readme = "README.md"
-requires-python = ">=3.10,<3.14"
+requires-python = ">=3.11,<3.14"
 dependencies = [
   "graphviz",
   "psutil",
@@ -37,7 +37,7 @@ apo = [
 # though it's listed here for completeness.
 verl = [
   "verl==0.9.1; platform_machine == 'x86_64' and python_version >= '3.11' and python_version < '3.13'",
-  "vllm==0.26.0; platform_machine == 'x86_64' and python_version >= '3.11' and python_version < '3.13'",
+  "vllm==0.30.0; platform_machine == 'x86_64' and python_version >= '3.11' and python_version < '3.13'",
 ]
 
 weave = [
@@ -101,10 +101,10 @@ torch-cu128 = [
 torch-stable = [
   {include-group = "core-stable"},
   # This can work for both CPU and GPU.
-  "torch==2.11.0; platform_machine == 'x86_64'",
-  "torchvision==0.26.0; platform_machine == 'x86_64'",
+  "torch==2.13.0; platform_machine == 'x86_64'",
+  "torchvision==0.28.0; platform_machine == 'x86_64'",
   "transformers==5.10.4; platform_machine == 'x86_64'",
-  "vllm==0.26.0; platform_machine == 'x86_64' and python_version >= '3.11' and python_version < '3.13'",
+  "vllm==0.30.0; platform_machine == 'x86_64' and python_version >= '3.11' and python_version < '3.13'",
   "litellm[proxy]>=1.88.6,<1.104; platform_machine == 'x86_64'",
 ]
 
@@ -138,7 +138,7 @@ trl = [
 # For Tinker integration.
 tinker = [
   {include-group = "core-stable"},
-  "torch==2.11.0; platform_machine == 'x86_64'",
+  "torch==2.13.0; platform_machine == 'x86_64'",
   "transformers==5.5.4; platform_machine == 'x86_64'",
   "tinker>=0.23.0; platform_machine == 'x86_64'",
   "tinker_cookbook==0.5.7; platform_machine == 'x86_64'",
@@ -148,7 +148,7 @@ tinker = [
 # For Multi-modality supports.
 image = [
   "datasets",
-  "Pillow",
+  "Pillow>=13.0.0",
   "pandas",
   "pyarrow",
   "qwen-vl-utils",
