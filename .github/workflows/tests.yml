@@ -200,8 +200,6 @@ jobs:
             display-name: Others
             pytest-mark: 'not store and not agentops and not weave and not llmproxy and not utils'
         env:
-          - python-version: '3.10'
-            setup-script: 'stable'
           - python-version: '3.11'
             setup-script: 'stable'
           - python-version: '3.12'
@@ -264,7 +262,7 @@ jobs:
           uv run --no-sync pytest -v tests/test_langchain_openai_security.py
 
       - name: Verify minimum supported LiteLLM security compatibility
-        if: matrix.env.python-version == '3.10' && matrix.mark.id == 'others'
+        if: matrix.env.python-version == '3.11' && matrix.mark.id == 'others'
         run: |
           uv pip install --no-deps litellm==1.88.6
           uv run --no-sync pytest -v tests/test_crypto_compat.py tests/test_sso_compat.py tests/test_multipart_compat.py tests/llm_proxy/test_llm_proxy_cpu.py tests/llm_proxy/test_stream.py -m "not openai and not gpu"

@@ -19,7 +19,7 @@ Always commit the refreshed `uv.lock` when dependencies shift, and mention optio
 - When `uv run` errors with `Permission denied` under `~/.cache`, override both cache locations inline: ``UV_CACHE="$(pwd)/.cache_uv" XDG_CACHE_HOME="$(pwd)/.cache_xdg" uv run --no-sync <command>``.
 
 ## Coding Style & Naming Conventions
-- Target `requires-python >= 3.10`, four-space indentation, 120-character lines (though docstrings may run longer), and formatter-owned diffs (Black + isort, `black` profile). Use `snake_case` for modules, functions, and variables; `PascalCase` for classes and React components; lowercase hyphenation for CLI flags, branch names, and TypeScript filenames.
+- Target `requires-python >= 3.11`, four-space indentation, 120-character lines (though docstrings may run longer), and formatter-owned diffs (Black + isort, `black` profile). Use `snake_case` for modules, functions, and variables; `PascalCase` for classes and React components; lowercase hyphenation for CLI flags, branch names, and TypeScript filenames.
 - Maintain exhaustive type hints (pyright enforces them) and prefer shared dataclasses or Pydantic models from `agentlightning.types`.
 - Author Google-style docstrings for new modules or public methods—succinct descriptions, no redundant type info, no redundant `Key features/components` bullet points. Use mkdocs styles: `[][]` syntax for cross-references and single backticks for inline code blocks.
 - Writing logs is encouraged, especially for long functions with multiple steps and try-except blocks that catch all exceptions. Use `logging.getLogger(__name__)` to get loggers. Distinguish between DEBUG, INFO, WARNING, and ERROR logs.
