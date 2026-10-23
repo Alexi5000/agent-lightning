@@ -140,7 +140,7 @@ class TraceStatus(BaseModel):
         )
 
 
-def _non_null_attributes(attributes: Optional[Mapping[str, Any]]) -> Attributes:
+def non_null_attributes(attributes: Optional[Mapping[str, Any]]) -> Attributes:
     return {key: value for key, value in attributes.items() if value is not None} if attributes else {}
 
 
@@ -162,7 +162,7 @@ class Event(BaseModel):
 
         return cls(
             name=src.name,
-            attributes=_non_null_attributes(src.attributes),
+            attributes=non_null_attributes(src.attributes),
             timestamp=convert_timestamp(src.timestamp),
             **extract_extra_fields(src, ["name", "attributes", "timestamp"]),
         )
@@ -184,7 +184,7 @@ class Link(BaseModel):
 
         return cls(
             context=SpanContext.from_opentelemetry(src.context),
-            attributes=_non_null_attributes(src.attributes) if src.attributes else None,
+            attributes=non_null_attributes(src.attributes) if src.attributes else None,
             **extract_extra_fields(src, ["context", "attributes"]),
         )
 
@@ -208,7 +208,7 @@ class OtelResource(BaseModel):
         """Create a [`Resource`][agentlightning.Resource] from an OpenTelemetry resource."""
 
         return cls(
-            attributes=_non_null_attributes(src.attributes),
+            attributes=non_null_attributes(src.attributes),
             schema_url=src.schema_url if src.schema_url else "",
             **extract_extra_fields(src, ["attributes", "schema_url"]),
         )
@@ -343,7 +343,7 @@ class Span(BaseModel):
             parent_id=(trace_api.format_span_id(src.parent.span_id) if src.parent else None),
             name=src.name,
             status=TraceStatus.from_opentelemetry(src.status),
-            attributes=_non_null_attributes(src.attributes),
+            attributes=non_null_attributes(src.attributes),
             events=[Event.from_opentelemetry(event) for event in src.events] if src.events else [],
             links=[Link.from_opentelemetry(link) for link in src.links] if src.links else [],
             start_time=convert_timestamp(src.start_time),

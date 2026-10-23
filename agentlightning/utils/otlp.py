@@ -226,6 +226,12 @@ async def spans_from_proto(
     return output_spans
 
 
+def set_otlp_endpoint(exporter: OTLPSpanExporter, endpoint: str) -> None:
+    """Retarget both endpoint copies in the supported OpenTelemetry 1.45 HTTP exporter."""
+    exporter._endpoint = endpoint  # pyright: ignore[reportPrivateUsage]
+    exporter._client._endpoint = endpoint  # pyright: ignore[reportPrivateUsage]
+
+
 class LightningStoreOTLPExporter(OTLPSpanExporter):
     """OTLP Exporter that write to a LightningStore-compatible backend.
 
@@ -279,14 +285,14 @@ class LightningStoreOTLPExporter(OTLPSpanExporter):
         self._attempt_id = attempt_id
 
         self._default_endpoint = self._endpoint
-        self._endpoint = endpoint
+        set_otlp_endpoint(self, endpoint)
 
     def disable_store_otlp(self) -> None:
         """Disable storing OTLP data to LightningStore."""
         self._rollout_id = None
         self._attempt_id = None
         if self._default_endpoint is not None:
-            self._endpoint = self._default_endpoint
+            set_otlp_endpoint(self, self._default_endpoint)
 
     def should_bypass(self) -> bool:
         """Check if the exporter should bypass the default export if rollout_id and attempt_id are not set."""

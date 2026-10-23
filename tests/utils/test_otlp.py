@@ -451,3 +451,32 @@ def test_lightning_store_otlp_exporter_overrides_resources(monkeypatch: pytest.M
     exporter.disable_store_otlp()
     assert exporter._rollout_id is None
     assert exporter._attempt_id is None
+
+
+def test_otlp_endpoint_retargets_http_transport(monkeypatch: pytest.MonkeyPatch) -> None:
+    exporter = otlp.LightningStoreOTLPExporter(endpoint="http://collector.invalid/v1/traces")
+    requests: List[str] = []
+
+    class Result:
+        status_code = 200
+        reason = "OK"
+        error = None
+
+        def headers(self) -> Dict[str, str]:
+            return {}
+
+        def close(self) -> None:
+            pass
+
+    def request(method: str, url: str, **kwargs: Any) -> Result:
+        requests.append(url)
+        return Result()
+
+    monkeypatch.setattr(exporter._client._transport, "request", request)
+    exporter.enable_store_otlp("http://store.invalid/v1/traces", "rollout", "attempt")
+    assert exporter.export([]) == SpanExportResult.SUCCESS
+    exporter.disable_store_otlp()
+    monkeypatch.setattr(exporter, "should_bypass", lambda: False)
+    assert exporter.export([]) == SpanExportResult.SUCCESS
+    assert requests == ["http://store.invalid/v1/traces", "http://collector.invalid/v1/traces"]
+    exporter.shutdown()

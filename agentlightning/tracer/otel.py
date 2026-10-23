@@ -19,7 +19,7 @@ from opentelemetry.sdk.trace.export import BatchSpanProcessor, SimpleSpanProcess
 from agentlightning.semconv import LightningResourceAttributes
 from agentlightning.store.base import LightningStore
 from agentlightning.types import Attributes, Span, SpanCoreFields, SpanRecordingContext, StatusCode, TraceStatus
-from agentlightning.types.tracer import convert_timestamp
+from agentlightning.types.tracer import convert_timestamp, non_null_attributes
 from agentlightning.utils.otel import get_tracer_provider
 from agentlightning.utils.otlp import LightningStoreOTLPExporter
 
@@ -61,7 +61,7 @@ class OtelSpanRecordingContext(SpanRecordingContext):
         if isinstance(self._span, ReadableSpan):
             return SpanCoreFields(
                 name=self._span.name,
-                attributes=dict(self._span.attributes) if self._span.attributes else {},
+                attributes=non_null_attributes(self._span.attributes),
                 start_time=convert_timestamp(self._span.start_time),
                 end_time=convert_timestamp(self._span.end_time),
                 status=TraceStatus.from_opentelemetry(self._span.status),
@@ -194,7 +194,7 @@ class OtelTracer(Tracer):
         if isinstance(span, ReadableSpan):
             return SpanCoreFields(
                 name=name,
-                attributes=dict(span.attributes) if span.attributes else {},
+                attributes=non_null_attributes(span.attributes),
                 start_time=convert_timestamp(span.start_time),
                 end_time=convert_timestamp(span.end_time),
                 status=TraceStatus.from_opentelemetry(span.status),
