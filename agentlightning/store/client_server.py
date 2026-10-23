@@ -8,6 +8,7 @@ import os
 import re
 import threading
 import time
+from dataclasses import replace
 from pathlib import Path
 from typing import (
     Any,
@@ -231,7 +232,7 @@ class LightningStoreServer(LightningStore):
 
     Args:
         store: The underlying store to delegate operations to.
-        host: The hostname or IP address to bind the server to.
+        host: The hostname or IP address to bind the server to. Defaults to loopback (127.0.0.1).
         port: The TCP port to listen on.
         cors_allow_origins: A list of CORS origins to allow. Use '*' to allow all origins.
         launch_mode: The launch mode to use for the server. Defaults to "thread",
@@ -259,13 +260,15 @@ class LightningStoreServer(LightningStore):
         if launcher_args is not None:
             if host is not None or port is not None or launch_mode != "thread":
                 raise ValueError("host, port, and launch_mode cannot be set when launcher_args is provided.")
-            self.launcher_args = launcher_args
+            self.launcher_args = (
+                launcher_args if launcher_args.host is not None else replace(launcher_args, host="127.0.0.1")
+            )
         else:
             if port is None:
                 server_logger.warning("No port provided, using default port 4747.")
                 port = 4747
             self.launcher_args = PythonServerLauncherArgs(
-                host=host,
+                host=host or "127.0.0.1",
                 port=port,
                 launch_mode=launch_mode,
                 healthcheck_url=API_V1_AGL_PREFIX + "/health",

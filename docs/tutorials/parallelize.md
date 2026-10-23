@@ -332,3 +332,10 @@ When `num_workers > 1`, the launcher starts gunicorn with the specified number o
     ```
 
     Under the hood, [`PythonServerLauncher`][agentlightning.utils.server_launcher.PythonServerLauncher] reads these arguments and chooses between uvicorn (single worker) and gunicorn (multiple workers) automatically.
+
+
+### Store network trust boundary
+
+`LightningStoreServer` and `agl store` bind to `127.0.0.1` when the host is omitted, including when a launcher configuration omits its host. Local workers continue to use the loopback listener. Distributed workers must explicitly configure the server host, as in the examples above using `AGL_SERVER_HOST=0.0.0.0`.
+
+The store is a shared service without application-level caller authentication or per-worker authorization. A caller that can reach it can read and mutate shared training resources. Before selecting a non-loopback host, restrict ingress to trusted workers using a private network/firewall or an authenticated gateway with no direct-listener bypass. CORS is not authentication. The loopback default does not isolate mutually untrusted local processes.
