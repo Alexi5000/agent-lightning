@@ -50,6 +50,7 @@ from starlette.types import Scope
 
 from agentlightning.semconv import LightningResourceAttributes
 from agentlightning.types import LLM, ProxyLLM
+from agentlightning.utils.otlp import set_otlp_endpoint
 from agentlightning.utils.server_launcher import (
     LaunchMode,
     PythonServerLauncher,
@@ -315,7 +316,7 @@ class LightningSpanExporter(SpanExporter):
                 logger.exception("Export flush failed: %s", e)
                 return SpanExportResult.FAILURE
             finally:
-                self._otlp_exporter._endpoint = default_endpoint  # pyright: ignore[reportPrivateUsage]
+                set_otlp_endpoint(self._otlp_exporter, default_endpoint)
 
         return SpanExportResult.SUCCESS
 
@@ -350,7 +351,7 @@ class LightningSpanExporter(SpanExporter):
             # If the store supports OTLP endpoint, use it.
             if store.capabilities.get("otlp_traces", False):
                 otlp_traces_endpoint = store.otlp_traces_endpoint()
-                self._otlp_exporter._endpoint = otlp_traces_endpoint  # pyright: ignore[reportPrivateUsage]
+                set_otlp_endpoint(self._otlp_exporter, otlp_traces_endpoint)
                 otlp_enabled = True
             else:
                 otlp_enabled = False
