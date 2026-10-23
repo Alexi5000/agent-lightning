@@ -462,13 +462,13 @@ def test_otlp_endpoint_retargets_http_transport(monkeypatch: pytest.MonkeyPatch)
         reason = "OK"
         error = None
 
-        def headers(self):
+        def headers(self) -> Dict[str, str]:
             return {}
 
-        def close(self):
+        def close(self) -> None:
             pass
 
-    def request(method, url, **kwargs):
+    def request(method: str, url: str, **kwargs: Any) -> Result:
         requests.append(url)
         return Result()
 
