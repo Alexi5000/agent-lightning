@@ -1,0 +1,11 @@
+host: 127.0.0.1
+port: 8080
+key: ""
+default_proxy:
+  model_name: "Qwen/Qwen2.5-7B-Instruct"
+  include_log_probs: True
+  include_routed_experts: False
+  train:
+    temperature: 1
+  val:
+    temperature: 0.7

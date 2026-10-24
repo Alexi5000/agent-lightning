@@ -1,178 +1,171 @@
 # Copyright (c) Microsoft. All rights reserved.
 
-# pyright: reportUnknownVariableType=false
-# pyright: reportUnknownMemberType=false
-# pyright: reportUnknownArgumentType=false
+"""VERL entrypoint for Agent Lightning — wraps verl's PPO setup with a custom trainer.
+
+Customizations:
+  1. Use AgentLightningRayPPOTrainer (subclass of RayPPOTrainer) that drives rollouts
+      through the Agent Lightning HTTP API instead of stock VERL agent loop workers.
+    2. Support pre-loaded in-memory datasets.
+"""
+
+# pyright: reportPrivateImportUsage=false
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Type
+import logging
+import os
+import socket
+from collections.abc import Sequence
+from typing import Any, cast
 
-import hydra
 import ray
-from verl.trainer.main_ppo_v0 import BaseTaskRunner
-from verl.trainer.ppo.utils import create_rl_sampler
+from omegaconf import OmegaConf
 
-from agentlightning.adapter import TraceAdapter
-from agentlightning.llm_proxy import LLMProxy
-from agentlightning.store.base import LightningStore
-from agentlightning.types import Dataset
+from .dataset import LoadedDataset
 
-from .dataset import AgentDataset, LoadedDataset
-
-if TYPE_CHECKING:
-    from .daemon import AgentModeDaemon
-    from .trainer import AgentLightningTrainer
+log = logging.getLogger(__name__)
 
 __all__ = [
-    "main",
     "run_ppo",
-    "TaskRunner",
 ]
-
-
-@hydra.main(config_path="pkg://agentlightning/verl", config_name="config", version_base=None)
-def main(config: Any):
-    from .daemon import AgentModeDaemon
-    from .trainer import AgentLightningTrainer
-
-    run_ppo(
-        config,
-        train_dataset=None,
-        val_dataset=None,
-        store=None,
-        llm_proxy=None,
-        adapter=None,
-        trainer_cls=AgentLightningTrainer,
-        daemon_cls=AgentModeDaemon,
-    )
 
 
 def run_ppo(
     config: Any,
-    train_dataset: Dataset[Any] | None,
-    val_dataset: Dataset[Any] | None,
-    store: LightningStore | None,
-    llm_proxy: LLMProxy | None,
-    adapter: TraceAdapter[Any] | None,
-    trainer_cls: Type[AgentLightningTrainer],
-    daemon_cls: Type[AgentModeDaemon],
+    train_dataset: Sequence[Any],
+    val_dataset: Sequence[Any],
 ) -> None:
+    """Launch VERL PPO training with Agent Lightning agent orchestration.
+
+    Datasets must be passed as non-empty in-memory sequences.
+    """
+    from verl.trainer.main_ppo import get_ppo_ray_runtime_env
+
+    assert train_dataset is not None and len(train_dataset) > 0, "train_dataset must be non-empty"
+    assert val_dataset is not None and len(val_dataset) > 0, "val_dataset must be non-empty"
+
     if not ray.is_initialized():
-        # this is for local ray cluster
-        try:
-            # verl >= 0.6.0
-            num_cpus = config.ray_kwargs.ray_init.num_cpus
-        except AttributeError:
-            # verl < 0.6.0
-            num_cpus = config.ray_init.num_cpus
+        default_runtime_env = cast(dict[str, Any], get_ppo_ray_runtime_env())
+        ray_init_config = OmegaConf.to_container(config.ray_kwargs.get("ray_init", OmegaConf.create({})), resolve=True)
+        ray_init_kwargs: dict[str, Any] = (
+            {str(key): value for key, value in ray_init_config.items()} if isinstance(ray_init_config, dict) else {}
+        )
+        runtime_env_config = ray_init_kwargs.pop("runtime_env", {})
+        runtime_env_kwargs = dict(runtime_env_config) if isinstance(runtime_env_config, dict) else {}
+        runtime_env = {**default_runtime_env, **runtime_env_kwargs}
+        # Register the custom policy loss in each Ray actor process.
+        runtime_env.setdefault(
+            "worker_process_setup_hook",
+            "agentlightning.verl.per_rollout_loss.register_in_worker",
+        )
+        _temp_dir = os.environ.get("RAY_TMPDIR")
         ray.init(
-            runtime_env={
-                "env_vars": {"TOKENIZERS_PARALLELISM": "true", "NCCL_DEBUG": "WARN", "VLLM_LOGGING_LEVEL": "WARN"}
-            },
-            num_cpus=num_cpus,
+            runtime_env=runtime_env,
+            **({"_temp_dir": _temp_dir} if _temp_dir else {}),
+            **ray_init_kwargs,
         )
 
-    runner = TaskRunner.remote()
-    ray.get(
-        runner.run.remote(  # type: ignore
-            config=config,
-            train_dataset=train_dataset,
-            val_dataset=val_dataset,
-            store=store,
-            llm_proxy=llm_proxy,
-            adapter=adapter,
-            trainer_cls=trainer_cls,
-            daemon_cls=daemon_cls,
-        )
-    )
+    train_ds = LoadedDataset(train_dataset)
+    val_ds = LoadedDataset(val_dataset)
+
+    runner = cast(Any, _AglTaskRunner).remote()
+    ray.get(runner.run.remote(config, train_ds, val_ds))
 
 
-@ray.remote(num_cpus=1)  # please make sure main_task is not scheduled on head
-class TaskRunner:
-    def run(
-        self,
-        config: Any,
-        train_dataset: Dataset[Any] | None,
-        val_dataset: Dataset[Any] | None,
-        store: LightningStore | None,
-        llm_proxy: LLMProxy | None,
-        adapter: TraceAdapter[Any] | None,
-        trainer_cls: Type[AgentLightningTrainer],
-        daemon_cls: Type[AgentModeDaemon],
-    ):
-        # print initial config
+@ray.remote(num_cpus=1)
+class _AglTaskRunner:
+    """TaskRunner that extends verl's TaskRunner with pre-loaded dataset support."""
+
+    def __init__(self):
+        from verl.trainer.main_ppo import TaskRunner
+
+        self._delegate = TaskRunner()
+
+    def run(self, config, train_dataset, val_dataset):
         from pprint import pprint
 
         from omegaconf import OmegaConf
+        from verl.trainer.main_ppo import (
+            create_rl_sampler,
+            need_critic,
+            need_reference_policy,
+            validate_config,
+        )
+        from verl.utils.dataset.rl_dataset import collate_fn
         from verl.utils.fs import copy_to_local
-
-        pprint(OmegaConf.to_container(config, resolve=True))  # resolve=True will eval symbol values
-        OmegaConf.resolve(config)
-
-        # download the checkpoint from hdfs
-        local_path = copy_to_local(config.actor_rollout_ref.model.path)
-
-        # instantiate tokenizer
         from verl.utils.tokenizer import hf_processor, hf_tokenizer
 
+        from agentlightning.verl.trainer import AgentLightningRayPPOTrainer
+
+        print(f"AglTaskRunner hostname: {socket.gethostname()}, PID: {os.getpid()}")
+        pprint(OmegaConf.to_container(config, resolve=True))
+        OmegaConf.resolve(config)
+
+        # Worker setup — delegated to verl's TaskRunner
+        d = self._delegate
+        actor_rollout_cls, ray_worker_group_cls = d.add_actor_rollout_worker(config)
+        d.add_critic_worker(config)
+        d.add_reward_model_resource_pool(config)
+        d.add_ref_policy_worker(config, actor_rollout_cls)
+
+        validate_config(
+            config=config,
+            use_reference_policy=need_reference_policy(config),
+            use_critic=need_critic(config),
+        )
+
+        local_path = copy_to_local(
+            config.actor_rollout_ref.model.path,
+            use_shm=config.actor_rollout_ref.model.get("use_shm", False),
+        )
         trust_remote_code = config.data.get("trust_remote_code", False)
         tokenizer = hf_tokenizer(local_path, trust_remote_code=trust_remote_code)
-        processor = hf_processor(local_path, use_fast=True)  # used for multimodal LLM, could be none
+        processor = hf_processor(local_path, trust_remote_code=trust_remote_code, use_fast=True)
+        # [multimodal-patch] verl's hf_processor only recognizes a fixed set of processor classes
+        # (Qwen2VL/Qwen2_5_VL/Qwen3VL/Glm4v) and silently returns None otherwise (e.g. Qwen3.5-VL).
+        # Fall back to a plain AutoProcessor load so the processor still reaches the trainer.
+        if processor is None:
+            from transformers import AutoProcessor, PreTrainedTokenizerBase
 
-        from .modern_server import register_instrumented_vllm
+            try:
+                fallback_processor = AutoProcessor.from_pretrained(
+                    local_path, trust_remote_code=trust_remote_code, use_fast=True
+                )
+            except Exception as exc:
+                # [multimodal-patch] Don't fail silently: a None processor disables
+                # multimodal training inputs, which is otherwise invisible.
+                log.warning(
+                    "AutoProcessor fallback failed for %s; multimodal training inputs will be disabled: %s",
+                    local_path,
+                    exc,
+                )
+                fallback_processor = None
+            if fallback_processor is not None and (
+                isinstance(fallback_processor, PreTrainedTokenizerBase)
+                or "Processor" not in fallback_processor.__class__.__name__
+            ):
+                fallback_processor = None
+            processor = fallback_processor
 
-        register_instrumented_vllm()
-        worker_setup = BaseTaskRunner()
-        _, ray_worker_group_cls = worker_setup.add_actor_rollout_worker(config)
-        worker_setup.add_critic_worker(config)
-        worker_setup.add_reward_model_resource_pool(config)
-        worker_setup.add_teacher_model_resource_pool(config)
-        resource_pool_manager = worker_setup.init_resource_pool_mgr(config)
+        resource_pool_manager = d.init_resource_pool_mgr(config)
 
-        from verl.utils.dataset.rl_dataset import collate_fn
-
-        # Use our special dataset
-        if train_dataset is None:
-            train_dataset = AgentDataset(
-                data_files=config.data.train_files,
-                tokenizer=tokenizer,
-                processor=processor,
-                config=config.data,
-            )
-        else:
-            train_dataset = LoadedDataset(train_dataset)
-
-        if val_dataset is None:
-            val_dataset = AgentDataset(
-                data_files=config.data.val_files,
-                tokenizer=tokenizer,
-                processor=processor,
-                config=config.data,
-            )
-        else:
-            val_dataset = LoadedDataset(val_dataset)
+        assert train_dataset is not None and len(train_dataset) > 0, "train_dataset must be non-empty"
+        assert val_dataset is not None and len(val_dataset) > 0, "val_dataset must be non-empty"
 
         train_sampler = create_rl_sampler(config.data, train_dataset)
-        trainer = trainer_cls(
+
+        trainer = AgentLightningRayPPOTrainer(
             config=config,
             tokenizer=tokenizer,
             processor=processor,
-            role_worker_mapping=worker_setup.role_worker_mapping,
+            role_worker_mapping=d.role_worker_mapping,
             resource_pool_manager=resource_pool_manager,
             ray_worker_group_cls=ray_worker_group_cls,
             train_dataset=train_dataset,
             val_dataset=val_dataset,
             collate_fn=collate_fn,
             train_sampler=train_sampler,
-            store=store,
-            llm_proxy=llm_proxy,
-            adapter=adapter,
-            daemon_cls=daemon_cls,
         )
         trainer.init_workers()
+
         trainer.fit()
-
-
-if __name__ == "__main__":
-    main()

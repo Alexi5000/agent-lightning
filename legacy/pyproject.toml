@@ -1,0 +1,352 @@
+[project]
+name = "agentlightning"
+version = "0.3.1"
+description = "Agent-lightning is the absolute trainer to light up AI agents."
+readme = "README.md"
+requires-python = ">=3.11,<3.14"
+dependencies = [
+  "graphviz",
+  "psutil",
+  "gpustat",
+  "setproctitle",
+  "flask",
+  "urllib3>=2.6.3,<3",
+  "agentops>=0.4.13",
+  "uvicorn",
+  "fastapi",
+  "aiohttp",
+  "opentelemetry-api>=1.45.1,<1.46",
+  "opentelemetry-sdk>=1.45.1,<1.46",
+  "opentelemetry-exporter-otlp>=1.45.1,<1.46",
+  "litellm[proxy]>=1.88.6,<1.104",
+  "pydantic>=2.11",
+  "email-validator>=2.3",
+  "openai",
+  "rich",
+  "portpicker",
+  "gunicorn",
+  "uvicorn_worker",
+  "aiologic",
+]
+
+[project.optional-dependencies]
+apo = [
+  "poml",
+]
+# It's not recommended to use agentlightning[verl] to install VERL and its dependencies.
+# though it's listed here for completeness.
+verl = [
+  "verl==0.9.1; platform_machine == 'x86_64' and python_version >= '3.11' and python_version < '3.13'",
+  "vllm==0.30.0; platform_machine == 'x86_64' and python_version >= '3.11' and python_version < '3.13'",
+]
+
+weave = [
+  "weave==0.53.12",
+]
+
+# Store-related dependencies.
+mongo = [
+  "pymongo",
+]
+
+[project.scripts]
+agl = "agentlightning.cli:main"
+
+[dependency-groups]
+dev = [
+  "flake8",
+  "pytest",
+  "hatch",
+  "pytest-asyncio",
+  "pre-commit",
+  "pytest-rerunfailures",
+  "black==26.10.1",
+  "isort==6.0.1",
+  "pyright==1.1.407",
+  "mkdocs",
+  "mkdocs-material",
+  "mkdocstrings[python]",
+  "mike",
+  "mkdocs-git-revision-date-localized-plugin",
+  "mkdocs-git-authors-plugin",
+  "mkdocs-macros-plugin",
+  "mkdocs-autorefs",
+  "prometheus-client",
+]
+experiment = [
+  "random-word",
+  "gdown",
+]
+
+core-stable = [
+  "litellm[proxy]>=1.88.6,<1.104",
+  "openai-agents>=0.5.1,<0.6",
+  "agentops>=0.4.21",
+  "openai>=2.26.0,<2.27",
+  "langchain-openai>=1.1.14,<1.2",
+]
+
+# For PyTorch.
+# CPU and GPU groups.
+torch-cpu = [
+  "torch",
+  "torchvision",
+]
+torch-cu128 = [
+  "torch; platform_machine == 'x86_64'",
+  "torchvision; platform_machine == 'x86_64'",
+]
+
+# Training-heavy dependencies.
+torch-stable = [
+  {include-group = "core-stable"},
+  # This can work for both CPU and GPU.
+  "torch==2.13.0; platform_machine == 'x86_64'",
+  "torchvision==0.28.0; platform_machine == 'x86_64'",
+  "transformers==5.10.4; platform_machine == 'x86_64'",
+  "vllm==0.30.0; platform_machine == 'x86_64' and python_version >= '3.11' and python_version < '3.13'",
+  "litellm[proxy]>=1.88.6,<1.104; platform_machine == 'x86_64'",
+]
+
+
+# Flash-attention must build with CUDA toolkit.
+# Use this instead of --group torch-stable --group torch-gpu
+torch-gpu-stable = [
+  {include-group = "torch-stable"},
+  {include-group = "torch-cu128"},
+  "flash-attn>=2.8.3; platform_machine == 'x86_64'",
+  "tensordict>=0.9.1; platform_machine == 'x86_64'",
+  "verl==0.9.1; platform_machine == 'x86_64' and python_version >= '3.11' and python_version < '3.13'",
+]
+
+# For the TRL/Unsloth example.
+trl = [
+  # Only work with PyTorch 2.8.0+.
+  {include-group = "torch-stable"},
+  # https://github.com/unslothai/unsloth/issues/3451
+  "unsloth>=2025.10.1,!=2025.10.2,!=2025.10.3,!=2025.10.4,!=2025.10.5,!=2025.10.6,!=2025.10.7,!=2025.10.8; platform_machine == 'x86_64'",
+  "unsloth_zoo>=2025.10.1,!=2025.10.2,!=2025.10.3,!=2025.10.4,!=2025.10.5,!=2025.10.6,!=2025.10.7,!=2025.10.8; platform_machine == 'x86_64'",
+  "bitsandbytes; platform_machine == 'x86_64'",
+  "peft; platform_machine == 'x86_64'",
+  "datasets; platform_machine == 'x86_64'",
+  "transformers==5.10.4; platform_machine == 'x86_64'",
+  "trl>=0.23,<0.24; platform_machine == 'x86_64'",
+  "kernels>=0.12.3,<0.13; platform_machine == 'x86_64'",
+  "vllm; platform_machine == 'x86_64'",
+]
+
+# For Tinker integration.
+tinker = [
+  {include-group = "core-stable"},
+  "torch==2.13.0; platform_machine == 'x86_64'",
+  "transformers==5.5.4; platform_machine == 'x86_64'",
+  "tinker>=0.23.0; platform_machine == 'x86_64'",
+  "tinker_cookbook==0.5.7; platform_machine == 'x86_64'",
+  "wandb; platform_machine == 'x86_64'",
+]
+
+# For Multi-modality supports.
+image = [
+  "datasets",
+  "Pillow>=13.0.0",
+  "pandas",
+  "pyarrow",
+  "qwen-vl-utils",
+]
+
+# Agent-related dependencies.
+autogen = [
+  "autogen-agentchat>=0.7.5",
+  "autogen-ext[openai]>=0.7.5",
+  "mcp>=1.10.0",
+  # UV is required now by default.
+  # No need to include UV here.
+  # "uv",
+]
+openai-agents = [
+  "openai-agents<0.6",
+  "openai",
+  # Compatibility issues with the latest version of OpenAI, temporarily fixed version
+  # Issue: https://github.com/openai/openai-agents-python/issues/2038
+  "mcp",
+  # Required by AOAI FT example.
+  "pandas",
+]
+anthropic = [
+  "anthropic",
+]
+langchain = [
+  "langgraph>=1.0.0",
+  "langchain[openai]>=1.0.0",
+  "langchain-community>=0.4.0",
+  "langchain-text-splitters>=1.0.0",
+]
+sql = [
+  "sqlparse",
+  "nltk>=3.10.4",
+]
+rag = [
+  "fastmcp>=2.13.1",
+  "faiss-cpu>=1.11.0",
+  "sentence-transformers>=4.1.0",
+]
+swebench = [
+  "swebench>=4.1,<5",
+]
+
+# Summarize into large installable groups.
+# LangChain remains an explicitly selected integration.
+# Use --group langchain explicitly when needed.
+agents = [
+  {include-group = "autogen"},
+  {include-group = "openai-agents"},
+  {include-group = "sql"},
+  {include-group = "anthropic"},
+  {include-group = "swebench"},
+]
+
+[tool.uv]
+required-version = ">=0.9.9"
+conflicts = [
+  [{group = "autogen"}, {group = "torch-stable"}],
+  [{group = "autogen"}, {extra = "verl"}],
+  [{group = "autogen"}, {group = "trl"}],
+  [{group = "tinker"}, {group = "torch-stable"}],
+  [{group = "tinker"}, {extra = "verl"}],
+  [
+    { group = "torch-cpu" },
+    { group = "torch-cu128" },
+  ],
+]
+environments = [
+  "sys_platform == 'linux'",
+]
+dependency-metadata = [
+  # Patch the dependencies of instructor to unpin "openai".
+  # This is a workaround for https://github.com/567-labs/instructor/issues/1852
+  { name = "instructor", version = "1.11.3", requires-dist = ["openai", "pydantic", "docstring-parser", "typer", "rich", "aiohttp", "tenacity", "pydantic-core", "jiter", "jinja2", "requests", "diskcache"] },
+]
+
+override-dependencies = [
+  "fsspec[http]>=2026.6.0,<2026.7",
+  "fastapi[standard]>=0.140.0,<0.141",
+  "starlette>=1.3.1,<1.4",
+  "fastapi-sso>=0.23.0,<0.24",
+  "json-repair>=0.60.1,<0.61",
+  "cryptography>=50.0.2,<51",
+  "python-multipart>=0.0.32,<0.1",
+  "pydantic>=2.11,<2.13",
+  "mcp>=1.19.0,<2",
+  "uvicorn>=0.38.0",
+  # Conflicts between packaging dependency of pyvers (dependency of tensordict) and agentops.
+  "packaging>=24.0",
+  # Conflicts between litellm and fastmcp
+  "websockets>=15.0.1",
+  "rich>=13.9.4",
+  # verl's numpy<2.0.0 constraint is related to Docker images, not code incompatibility
+  # Lock to 2.3.0 because numba relies on numpy 2.2
+  "numpy>=2.0.0,<2.3.0",
+  # vllm relies on setuptools<80, but polyfile-weave depends on setuptools>=80.9.0
+  "setuptools>=80.9.0",
+]
+
+[tool.uv.sources]
+torch = [
+  { index = "pypi", group = "torch-cu128" },
+  { index = "pytorch-cpu", group = "torch-cpu" },
+]
+torchvision = [
+  { index = "pypi", group = "torch-cu128" },
+  { index = "pytorch-cpu", group = "torch-cpu" },
+]
+
+[[tool.uv.index]]
+name = "pypi"
+url = "https://pypi.org/simple"
+
+[[tool.uv.index]]
+name = "pytorch-cu128"
+explicit = true
+url = "https://download.pytorch.org/whl/cu128"
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+explicit = true
+url = "https://download.pytorch.org/whl/cpu"
+
+[tool.uv.extra-build-dependencies]
+flash-attn = [
+  { requirement = "torch", match-runtime = true },
+]
+
+[tool.uv.dependency-groups]
+tinker = {requires-python = ">=3.11,<3.13"}
+torch-stable = {requires-python = ">=3.11,<3.13"}
+torch-gpu-stable = {requires-python = ">=3.11,<3.13"}
+trl = {requires-python = ">=3.11,<3.13"}
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["agentlightning"]
+include = [
+  "agentlightning/**/*.yaml",
+  "agentlightning/**/*.yml",
+  "agentlightning/**/*.poml",
+]
+artifacts = [
+  "agentlightning/dashboard/**",
+]
+
+[tool.hatch.build.targets.sdist]
+exclude = [
+  "/examples/**",
+  "/tests/**",
+  "/docs/**",
+  "/scripts/**",
+  "/dashboard/**",
+  "/docker/**",
+  "/contrib/**",
+  "/.github/**",
+]
+artifacts = [
+  "agentlightning/dashboard/**",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = [
+  "openai: tests that require OpenAI API",
+  "gpu: tests that require GPU",
+  "agentops: tests that require AgentOps",
+  "weave: tests that require Weave",
+  "llmproxy: tests that require LiteLLM",
+  "mongo: tests that require MongoDB",
+  "store: tests for agentlightning.store module",
+  "prometheus: tests that require Prometheus",
+  "utils: tests for utility functions",
+  "langchain: tests that require LangChain",
+]
+
+[tool.black]
+line-length = 120
+target-version = ['py312']
+include = '\.pyi?$'
+extend-exclude = '''
+/(
+  _version\.py
+  | \.venv-[^/]+
+)
+'''
+
+[tool.isort]
+profile = "black"
+line_length = 120
+known_first_party = ["agentlightning"]
+extend_skip_glob = [
+  ".venv-*/**",
+  "data/**",
+  "_version.py",
+]
