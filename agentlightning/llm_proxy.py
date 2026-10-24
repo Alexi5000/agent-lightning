@@ -351,7 +351,7 @@ class LightningSpanExporter(SpanExporter):
             # If the store supports OTLP endpoint, use it.
             if store.capabilities.get("otlp_traces", False):
                 otlp_traces_endpoint = store.otlp_traces_endpoint()
-                set_otlp_endpoint(self._otlp_exporter, otlp_traces_endpoint)
+                set_otlp_endpoint(self._otlp_exporter, otlp_traces_endpoint, store.otlp_traces_headers())
                 otlp_enabled = True
             else:
                 otlp_enabled = False

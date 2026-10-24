@@ -23,6 +23,7 @@ from verl import DataProto
 
 from agentlightning import LLM, AgentLightningServer, NamedResources, RolloutLegacy
 from agentlightning.adapter.triplet import TracerTraceToTriplet, TraceToTripletBase
+from agentlightning.env_var import LightningEnvVar, resolve_str_env_var
 from agentlightning.llm_proxy import LLMProxy, ModelConfig
 from agentlightning.store.base import LightningStore
 from agentlightning.types import EnqueueRolloutRequest, Rollout, RolloutConfig, Task
@@ -237,8 +238,11 @@ class AgentModeDaemon:
         if mode == "v0":
             assert port is not None
             self.server_port = port
+            # Loopback unless AGL_SERVER_HOST explicitly selects another interface.
             self.server = AgentLightningServer(
-                host="0.0.0.0", port=self.server_port, task_timeout_seconds=self.llm_timeout_seconds
+                host=resolve_str_env_var(LightningEnvVar.AGL_SERVER_HOST, fallback="127.0.0.1"),
+                port=self.server_port,
+                task_timeout_seconds=self.llm_timeout_seconds,
             )
             self.proxy_port = _find_available_port()  # Run proxy on a different port
         else:

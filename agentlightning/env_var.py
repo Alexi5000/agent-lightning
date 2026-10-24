@@ -39,6 +39,10 @@ class LightningEnvVar(Enum):
     AGL_SERVER_PORT = "AGL_SERVER_PORT"
     """Port the [`LightningStoreServer`][agentlightning.LightningStoreServer] listens to."""
 
+    AGL_SERVER_TOKEN = "AGL_SERVER_TOKEN"
+    """Optional shared bearer token. When set, the store server and the legacy server require
+    `Authorization: Bearer <token>` on API requests, and the matching clients send it."""
+
 
 _TRUTHY_VALUES = {"1", "true", "yes", "on"}
 _FALSY_VALUES = {"0", "false", "no", "off"}

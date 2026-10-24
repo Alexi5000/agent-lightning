@@ -226,10 +226,38 @@ async def spans_from_proto(
     return output_spans
 
 
-def set_otlp_endpoint(exporter: OTLPSpanExporter, endpoint: str) -> None:
-    """Retarget both endpoint copies in the supported OpenTelemetry 1.45 HTTP exporter."""
+def set_otlp_endpoint(exporter: OTLPSpanExporter, endpoint: str, headers: Optional[Mapping[str, str]] = None) -> None:
+    """Retarget both endpoint copies in the supported OpenTelemetry 1.45 HTTP exporter.
+
+    Headers applied by a previous call are reverted first, so retargeting back to a default endpoint
+    without `headers` drops any store credentials and restores the exporter's own header values.
+
+    Args:
+        exporter: The exporter to retarget.
+        endpoint: The new OTLP/HTTP traces endpoint.
+        headers: Extra headers (for example, store authentication) to send to `endpoint`.
+    """
     exporter._endpoint = endpoint  # pyright: ignore[reportPrivateUsage]
-    exporter._client._endpoint = endpoint  # pyright: ignore[reportPrivateUsage]
+    client = exporter._client  # pyright: ignore[reportPrivateUsage]
+    client._endpoint = endpoint  # pyright: ignore[reportPrivateUsage]
+
+    # The exporter keeps lowercase header names; match case-insensitively so overrides never duplicate.
+    client_headers: Dict[str, str] = client._headers  # pyright: ignore[reportPrivateUsage]
+    applied: Optional[List[str]] = getattr(exporter, "_agl_applied_headers", None)
+    saved: Optional[Dict[str, str]] = getattr(exporter, "_agl_saved_headers", None)
+    for key in applied or []:
+        client_headers.pop(key, None)
+    client_headers.update(saved or {})
+    setattr(exporter, "_agl_applied_headers", None)
+    setattr(exporter, "_agl_saved_headers", None)
+    if headers:
+        new_headers = {key.lower(): value for key, value in headers.items()}
+        previous = {key: value for key, value in client_headers.items() if key.lower() in new_headers}
+        for key in previous:
+            del client_headers[key]
+        client_headers.update(new_headers)
+        setattr(exporter, "_agl_applied_headers", list(new_headers))
+        setattr(exporter, "_agl_saved_headers", previous)
 
 
 class LightningStoreOTLPExporter(OTLPSpanExporter):
@@ -279,13 +307,15 @@ class LightningStoreOTLPExporter(OTLPSpanExporter):
             return self._attempt_id
         return None
 
-    def enable_store_otlp(self, endpoint: str, rollout_id: str, attempt_id: str) -> None:
+    def enable_store_otlp(
+        self, endpoint: str, rollout_id: str, attempt_id: str, headers: Optional[Mapping[str, str]] = None
+    ) -> None:
         """Enable storing OTLP data to a specific LightningStore rollout/attempt."""
         self._rollout_id = rollout_id
         self._attempt_id = attempt_id
 
         self._default_endpoint = self._endpoint
-        set_otlp_endpoint(self, endpoint)
+        set_otlp_endpoint(self, endpoint, headers)
 
     def disable_store_otlp(self) -> None:
         """Disable storing OTLP data to LightningStore."""

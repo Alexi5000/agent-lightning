@@ -1345,3 +1345,14 @@ async def test_launcher_endpoint_access_endpoint_health_url_normalization():
     finally:
         await launcher.stop()
         _free_port("127.0.0.1", port)
+
+
+def test_omitted_launcher_host_defaults_to_loopback() -> None:
+    launcher = PythonServerLauncher(FastAPI(), PythonServerLauncherArgs(port=portpicker.pick_unused_port()))
+    assert launcher.endpoint.startswith("http://127.0.0.1:")
+    assert launcher.access_endpoint.startswith("http://127.0.0.1:")
+
+
+def test_explicit_launcher_host_is_preserved() -> None:
+    launcher = PythonServerLauncher(FastAPI(), PythonServerLauncherArgs(host="0.0.0.0", port=4747))
+    assert launcher.endpoint == "http://0.0.0.0:4747"

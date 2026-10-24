@@ -19,7 +19,7 @@ from contextlib import asynccontextmanager
 from typing import Any, Dict, List, Literal, Optional
 
 import uvicorn
-from fastapi import FastAPI, HTTPException, Path
+from fastapi import Depends, FastAPI, HTTPException, Path, Request
 
 from .types import (
     GenericResponse,
@@ -29,6 +29,7 @@ from .types import (
     Task,
     TaskIfAny,
 )
+from .utils.server_auth import is_authorized_header, resolve_server_token
 
 logger = logging.getLogger(__name__)
 
@@ -214,7 +215,13 @@ class AgentLightningServer:
         integrations.
     """
 
-    def __init__(self, host: str = "127.0.0.1", port: int = 8000, task_timeout_seconds: float = 300.0):
+    def __init__(
+        self,
+        host: str = "127.0.0.1",
+        port: int = 8000,
+        task_timeout_seconds: float = 300.0,
+        auth_token: Optional[str] = None,
+    ):
         """Initialize the controller.
 
         Args:
@@ -222,6 +229,8 @@ class AgentLightningServer:
             port: TCP port exposed by the server.
             task_timeout_seconds: Seconds before a claimed task is considered stale and
                 re-queued.
+            auth_token: Optional shared bearer token. When set (or when `AGL_SERVER_TOKEN` is set),
+                every route requires `Authorization: Bearer <token>`. Trusted workers share the token.
         """
         warnings.warn(
             "AgentLightningServer is deprecated. Please use LightningStoreServer instead.", DeprecationWarning
@@ -230,6 +239,7 @@ class AgentLightningServer:
         self.port = port
         self.endpoint = f"http://{host}:{port}"
         self._task_timeout_seconds = task_timeout_seconds
+        self._auth_token = resolve_server_token(auth_token)
 
         # Defer initialization and use event for cross-thread communication
         self._store: Optional[ServerDataStore] = None
@@ -237,11 +247,20 @@ class AgentLightningServer:
         self.startup_event = threading.Event()
 
         # Create FastAPI app instance with a lifespan manager
-        self._app = FastAPI(lifespan=self._lifespan)
+        self._app = FastAPI(lifespan=self._lifespan, dependencies=[Depends(self._require_token)])
         self._setup_routes()
 
         self._uvicorn_config = uvicorn.Config(self._app, host=self.host, port=self.port, log_level="info")
         self._uvicorn_server = uvicorn.Server(self._uvicorn_config)
+
+    async def _require_token(self, request: Request) -> None:
+        """Reject requests without the shared bearer token when one is configured."""
+        if self._auth_token is None:
+            return
+        if not is_authorized_header(request.headers.get("authorization"), self._auth_token):
+            raise HTTPException(
+                status_code=401, detail="Missing or invalid bearer token", headers={"WWW-Authenticate": "Bearer"}
+            )
 
     # --- ADDED: Lifespan context manager ---
     @asynccontextmanager

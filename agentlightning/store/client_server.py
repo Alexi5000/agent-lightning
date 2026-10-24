@@ -61,6 +61,7 @@ from agentlightning.types import (
 )
 from agentlightning.utils.metrics import MetricsBackend, get_prometheus_registry
 from agentlightning.utils.otlp import handle_otlp_export, spans_from_proto
+from agentlightning.utils.server_auth import bearer_headers, is_authorized_header, resolve_server_token
 from agentlightning.utils.server_launcher import LaunchMode, PythonServerLauncher, PythonServerLauncherArgs
 
 from .base import UNSET, LightningStore, LightningStoreCapabilities, LightningStoreStatistics, Unset
@@ -241,6 +242,9 @@ class LightningStoreServer(LightningStore):
             It's not allowed to set `host`, `port`, `launch_mode` together with `launcher_args`.
         n_workers: The number of workers to run in the server. Only applicable for `mp` launch mode.
         tracker: The metrics tracker to use for the server.
+        auth_token: Optional shared bearer token. When set (or when `AGL_SERVER_TOKEN` is set), every
+            `/v1/...` request except `/v1/agl/health` must carry `Authorization: Bearer <token>`.
+            Trusted workers share the same token. Unset keeps the previous unauthenticated behavior.
     """
 
     def __init__(
@@ -253,9 +257,11 @@ class LightningStoreServer(LightningStore):
         launcher_args: PythonServerLauncherArgs | None = None,
         n_workers: int = 1,
         tracker: MetricsBackend | None = None,
+        auth_token: str | None = None,
     ):
         super().__init__()
         self.store = store
+        self._auth_token: str | None = resolve_server_token(auth_token)
 
         if launcher_args is not None:
             if host is not None or port is not None or launch_mode != "thread":
@@ -323,6 +329,10 @@ class LightningStoreServer(LightningStore):
         """Return the OTLP/HTTP traces endpoint of the store."""
         return f"{self.endpoint}/v1/traces"
 
+    def otlp_traces_headers(self) -> Dict[str, str]:
+        """Return the authentication headers required by the OTLP/HTTP traces endpoint."""
+        return bearer_headers(self._auth_token)
+
     def __getstate__(self):
         """
         Control pickling to prevent server state from being sent to subprocesses.
@@ -338,6 +348,7 @@ class LightningStoreServer(LightningStore):
             "launcher_args": self.launcher_args,
             "server_launcher": self.server_launcher,
             "_owner_pid": self._owner_pid,
+            "_auth_token": self._auth_token,
         }
 
     def __setstate__(self, state: Dict[str, Any]):
@@ -356,6 +367,7 @@ class LightningStoreServer(LightningStore):
         self.server_launcher = state["server_launcher"]
         self._tracker = None
         self._owner_pid = state["_owner_pid"]
+        self._auth_token = state.get("_auth_token")
         self._cors_allow_origins = state.get("_cors_allow_origins")
         self._client = None
         self._lock = threading.Lock()
@@ -442,6 +454,29 @@ class LightningStoreServer(LightningStore):
         # The outermost-layer of monitoring
         if self._tracker is not None:
             self._setup_metrics(api=api, app=self.app)
+
+        if self._auth_token is not None:
+            auth_token = self._auth_token
+
+            @self.app.middleware("http")
+            async def _require_shared_token(  # pyright: ignore[reportUnusedFunction]
+                request: Request, call_next: Callable[[Request], Awaitable[Response]]
+            ) -> Response:
+                """Require the shared bearer token on API routes when one is configured."""
+                path = request.url.path
+                if (
+                    request.method == "OPTIONS"
+                    or path == API_V1_AGL_PREFIX + "/health"
+                    or not (path == API_V1_PREFIX or path.startswith(API_V1_PREFIX + "/"))
+                ):
+                    return await call_next(request)
+                if not is_authorized_header(request.headers.get("authorization"), auth_token):
+                    return JSONResponse(
+                        status_code=401,
+                        content={"detail": "Missing or invalid bearer token"},
+                        headers={"WWW-Authenticate": "Bearer"},
+                    )
+                return await call_next(request)
 
         # TODO: This should only be enabled in development mode.
         @self.app.middleware("http")
@@ -1044,7 +1079,7 @@ class LightningStoreServer(LightningStore):
                 with self._lock:
                     return await getattr(self.store, method_name)(*args, **kwargs)
         if self._client is None:
-            self._client = LightningStoreClient(self.endpoint)
+            self._client = LightningStoreClient(self.endpoint, auth_token=self._auth_token)
         return await getattr(self._client, method_name)(*args, **kwargs)
 
     async def statistics(self) -> LightningStoreStatistics:
@@ -1346,6 +1381,8 @@ class LightningStoreClient(LightningStore):
             Setting to an empty sequence to disable health checks.
         request_timeout: Timeout (seconds) for each request.
         connection_timeout: Timeout (seconds) for establishing connection.
+        auth_token: Optional shared bearer token sent as `Authorization: Bearer <token>`.
+            Falls back to the `AGL_SERVER_TOKEN` environment variable.
     """
 
     def __init__(
@@ -1356,7 +1393,9 @@ class LightningStoreClient(LightningStore):
         health_retry_delays: Sequence[float] = (0.1, 0.2, 0.5),
         request_timeout: float = 30.0,
         connection_timeout: float = 5.0,
+        auth_token: str | None = None,
     ):
+        self._auth_token: str | None = resolve_server_token(auth_token)
         self.server_address_root = server_address.rstrip("/")
         self.server_address = self.server_address_root + API_V1_AGL_PREFIX
         self._sessions: Dict[int, aiohttp.ClientSession] = {}  # id(loop) -> ClientSession
@@ -1388,6 +1427,10 @@ class LightningStoreClient(LightningStore):
         """Return the OTLP/HTTP traces endpoint of the store."""
         return f"{self.server_address_root}/v1/traces"
 
+    def otlp_traces_headers(self) -> Dict[str, str]:
+        """Return the authentication headers required by the OTLP/HTTP traces endpoint."""
+        return bearer_headers(self._auth_token)
+
     async def statistics(self) -> LightningStoreStatistics:
         payload = await self._request_json("get", "/statistics")
         return cast(LightningStoreStatistics, payload)
@@ -1405,6 +1448,7 @@ class LightningStoreClient(LightningStore):
             "_health_retry_delays": self._health_retry_delays,
             "_request_timeout": self._request_timeout,
             "_connection_timeout": self._connection_timeout,
+            "_auth_token": self._auth_token,
         }
 
     def __setstate__(self, state: Dict[str, Any]):
@@ -1421,6 +1465,7 @@ class LightningStoreClient(LightningStore):
         self._health_retry_delays = state["_health_retry_delays"]
         self._request_timeout = state["_request_timeout"]
         self._connection_timeout = state["_connection_timeout"]
+        self._auth_token = state.get("_auth_token")
         self._dequeue_was_successful = False
         self._dequeue_first_unsuccessful = True
 
@@ -1452,7 +1497,7 @@ class LightningStoreClient(LightningStore):
                     sock_connect=self._connection_timeout,
                     sock_read=self._request_timeout,
                 )
-                sess = aiohttp.ClientSession(timeout=timeout)
+                sess = aiohttp.ClientSession(timeout=timeout, headers=bearer_headers(self._auth_token))
                 self._sessions[key] = sess
         return sess
 
