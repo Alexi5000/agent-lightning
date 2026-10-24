@@ -18,7 +18,7 @@ def make_server(**kwargs: Any) -> LightningStoreServer:
 
 
 @pytest.fixture(autouse=True)
-def _clear_token_env(monkeypatch: pytest.MonkeyPatch) -> None:
+def _clear_token_env(monkeypatch: pytest.MonkeyPatch) -> None:  # pyright: ignore[reportUnusedFunction]
     monkeypatch.delenv("AGL_SERVER_TOKEN", raising=False)
 
 
