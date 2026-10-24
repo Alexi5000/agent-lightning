@@ -71,7 +71,7 @@ url = "https://download.pytorch.org/whl/cpu"
 [tool.ruff]
 line-length = 120
 target-version = "py312"
-exclude = ["examples/llm-in-sandbox/vendor"]
+exclude = ["examples/llm-in-sandbox/vendor", "legacy"]
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "UP", "B", "SIM", "RUF"]

@@ -6,7 +6,9 @@ from __future__ import annotations
 
 from collections.abc import AsyncIterator, Mapping
 from contextlib import asynccontextmanager
+from secrets import compare_digest
 from typing import Any, cast
+from urllib.parse import urlsplit
 
 import httpx
 import structlog
@@ -35,14 +37,24 @@ def _build_auth_dependency(key: str):
     """Return a dependency that validates the optional API key."""
 
     async def verify_key(request: Request) -> None:
+        origin = request.headers.get("origin")
+        if origin and origin != str(request.base_url).rstrip("/"):
+            raise HTTPException(status_code=403, detail="Untrusted request origin")
         if not key:
+            host = urlsplit(str(request.url)).hostname
+            if (
+                not request.client
+                or request.client.host not in {"127.0.0.1", "::1"}
+                or host not in {"localhost", "127.0.0.1", "::1"}
+            ):
+                raise HTTPException(status_code=403, detail="Unauthenticated requests require loopback")
             return
 
         auth_header = request.headers.get("authorization", "")
-        if auth_header.startswith("Bearer ") and auth_header[7:] == key:
+        if auth_header.startswith("Bearer ") and compare_digest(auth_header[7:].encode(), key.encode()):
             return
 
-        if request.headers.get("x-api-key", "") == key:
+        if compare_digest(request.headers.get("x-api-key", "").encode(), key.encode()):
             return
 
         raise HTTPException(status_code=401, detail="Invalid or missing API key")
@@ -54,6 +66,9 @@ def create_app(config: Mapping[str, Any] | DictConfig | None = None) -> FastAPI:
     """Create and configure the FastAPI application."""
     server_config = _server_config(config)
     key = str(server_config["key"] or "")
+
+    if not key and server_config.get("host", "127.0.0.1") not in {"127.0.0.1", "::1", "localhost"}:
+        raise ValueError("A server key is required when binding outside loopback")
 
     if not key:
         log.warning("AGL_KEY not set — authentication disabled. Do not use in production.")

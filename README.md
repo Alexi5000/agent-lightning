@@ -10,6 +10,23 @@
 
 > Agent Lightning was completely refactored in v1.0. For legacy releases earlier than v1.0, see [this branch](https://github.com/microsoft/agent-lightning/tree/v0.x).
 
+## Fork runtime compatibility
+
+The repository root follows upstream Agent Lightning v1.0.2. The complete hardened
+v0.x fork is preserved in [`legacy/`](legacy/README.md), including its APIs,
+dashboard, examples, security patches, dependency profiles, and documentation.
+The runtimes use separate virtual environments because their training dependencies
+and Python APIs are incompatible.
+
+For existing `Trainer`, `LitAgent`, store, and `agl` workflows, run commands from
+`legacy/`: `uv sync --frozen --no-default-groups --group dev`, then
+`uv run --no-sync agl --help`. Existing Python imports remain unchanged there.
+For new v1 workflows, use the root installation and `agl-server` / `agl-controller`.
+Do not install both runtimes into the same virtual environment. The v1 server now
+binds to loopback by default and requires a key for non-loopback listeners.
+CPU regression coverage runs for both runtimes. GPU training and live-provider
+validation require their respective external environments.
+
 ## ⚡ News
 
 - [2026/09] We release [a new coding agent example based on an MoE model](https://microsoft.github.io/agent-lightning/stable/76-example-coding-agent-moe/). Pure RL improves Qwen3.5-35B-A3B on SWE-bench Verified from 47.8% to 61.6% after training it on only 1.8K training examples!

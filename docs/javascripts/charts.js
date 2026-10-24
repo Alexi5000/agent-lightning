@@ -71,6 +71,7 @@ function applyDatasetDefaults(config) {
 function deepMerge(target, src) {
   if (!src || typeof src !== "object") return target;
   for (const k of Object.keys(src)) {
+    if (k === "__proto__" || k === "constructor" || k === "prototype") continue;
     const v = src[k];
     if (v && typeof v === "object" && !Array.isArray(v)) {
       target[k] = deepMerge(target[k] || {}, v);
