@@ -480,3 +480,39 @@ def test_otlp_endpoint_retargets_http_transport(monkeypatch: pytest.MonkeyPatch)
     assert exporter.export([]) == SpanExportResult.SUCCESS
     assert requests == ["http://store.invalid/v1/traces", "http://collector.invalid/v1/traces"]
     exporter.shutdown()
+
+
+def test_store_otlp_headers_are_sent_and_reverted(monkeypatch: pytest.MonkeyPatch) -> None:
+    exporter = otlp.LightningStoreOTLPExporter(
+        endpoint="http://collector.invalid/v1/traces", headers={"Authorization": "Bearer collector"}
+    )
+    sent: List[Optional[str]] = []
+
+    class Result:
+        status_code = 200
+        reason = "OK"
+        error = None
+
+        def headers(self) -> Dict[str, str]:
+            return {}
+
+        def close(self) -> None:
+            pass
+
+    def request(method: str, url: str, **kwargs: Any) -> Result:
+        headers = {key.lower(): value for key, value in dict(kwargs.get("headers") or {}).items()}
+        assert sum(1 for key in dict(kwargs.get("headers") or {}) if key.lower() == "authorization") <= 1
+        sent.append(headers.get("authorization"))
+        return Result()
+
+    monkeypatch.setattr(exporter._client._transport, "request", request)
+    exporter.enable_store_otlp(
+        "http://store.invalid/v1/traces", "rollout", "attempt", {"Authorization": "Bearer store-token"}
+    )
+    assert exporter.export([]) == SpanExportResult.SUCCESS
+    exporter.disable_store_otlp()
+    monkeypatch.setattr(exporter, "should_bypass", lambda: False)
+    assert exporter.export([]) == SpanExportResult.SUCCESS
+    # The store token goes only to the store; the collector keeps its own credential.
+    assert sent == ["Bearer store-token", "Bearer collector"]
+    exporter.shutdown()

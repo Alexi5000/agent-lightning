@@ -19,6 +19,7 @@ import aiohttp
 import requests
 
 from .types import NamedResources, ResourcesUpdate, RolloutLegacy, Task, TaskIfAny, TaskInput
+from .utils.server_auth import bearer_headers, resolve_server_token
 
 logger = logging.getLogger(__name__)
 
@@ -49,13 +50,17 @@ class AgentLightningClient:
     _latest_resources_uri = "/resources/latest"
     _report_rollout_uri = "/rollout"
 
-    def __init__(self, endpoint: str, poll_interval: float = 5.0, timeout: float = 10.0):
+    def __init__(
+        self, endpoint: str, poll_interval: float = 5.0, timeout: float = 10.0, auth_token: Optional[str] = None
+    ):
         """Initialize the client.
 
         Args:
             endpoint: Root URL of the Agent Lightning server.
             poll_interval: Seconds to wait between polling attempts.
             timeout: Seconds before a request to the server is considered timed out.
+            auth_token: Optional shared bearer token sent as `Authorization: Bearer <token>`.
+                Falls back to the `AGL_SERVER_TOKEN` environment variable.
         """
         warnings.warn(
             "AgentLightningClient is deprecated. Please use LightningStoreClient instead.", DeprecationWarning
@@ -65,7 +70,7 @@ class AgentLightningClient:
         self.poll_interval = poll_interval
         self.timeout = timeout
         self._resource_cache: Dict[str, ResourcesUpdate] = {}  # TODO: mechanism to evict cache
-        self._default_headers = {"X-AgentLightning-Client": "true"}
+        self._default_headers = {"X-AgentLightning-Client": "true", **bearer_headers(resolve_server_token(auth_token))}
 
     async def _request_json_async(self, url: str) -> Optional[Dict[str, Any]]:
         """Perform an asynchronous ``GET`` request and parse the JSON payload.

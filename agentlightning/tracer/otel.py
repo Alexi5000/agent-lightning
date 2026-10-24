@@ -270,7 +270,9 @@ class OtelTracer(Tracer):
             elif isinstance(processor, (SimpleSpanProcessor, BatchSpanProcessor)):
                 # Instead, we rely on the OTLPSpanExporter to send spans to the store.
                 if isinstance(processor.span_exporter, LightningStoreOTLPExporter):
-                    processor.span_exporter.enable_store_otlp(store.otlp_traces_endpoint(), rollout_id, attempt_id)
+                    processor.span_exporter.enable_store_otlp(
+                        store.otlp_traces_endpoint(), rollout_id, attempt_id, store.otlp_traces_headers()
+                    )
                     logger.debug(f"Set LightningStoreOTLPExporter endpoint to {store.otlp_traces_endpoint()}")
                     instrumented = True
                 else:

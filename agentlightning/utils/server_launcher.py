@@ -38,7 +38,8 @@ class PythonServerLauncherArgs:
     port: Optional[int] = None
     """The TCP port to listen on. If not provided, the server will use a random available port."""
     host: Optional[str] = None
-    """The hostname or IP address to bind the server to."""
+    """The hostname or IP address to bind the server to. Defaults to loopback (`127.0.0.1`);
+    set it explicitly (for example `0.0.0.0`) to accept connections from other machines."""
     access_host: Optional[str] = None
     """The hostname or IP address to advertise to the client. If not provided, the server will use the default outbound IPv4 address for this machine."""
     launch_mode: LaunchMode = "asyncio"
@@ -767,8 +768,8 @@ class PythonServerLauncher:
 
     def _ensure_host(self) -> str:
         if self._host is None:
-            logger.warning("No host provided, using 0.0.0.0.")
-            self._host = "0.0.0.0"
+            logger.warning("No host provided, binding to loopback 127.0.0.1. Set host explicitly to listen remotely.")
+            self._host = "127.0.0.1"
         return self._host
 
     def _ensure_port(self) -> int:

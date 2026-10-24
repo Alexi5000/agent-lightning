@@ -155,6 +155,14 @@ class LightningStore:
         """
         raise NotImplementedError()
 
+    def otlp_traces_headers(self) -> Dict[str, str]:
+        """Return extra HTTP headers (for example, authentication) required by
+        [`otlp_traces_endpoint`][agentlightning.LightningStore.otlp_traces_endpoint].
+
+        Defaults to no extra headers.
+        """
+        return {}
+
     async def start_rollout(
         self,
         input: TaskInput,
