@@ -1,0 +1,16 @@
+{
+  "upstream_version": "0.1.0",
+  "upstream_commit": "6e3ef0554d303eaef3965fdc071534c00ac5a1d6",
+  "wheel_url": "https://files.pythonhosted.org/packages/7f/39/c5432f541e6ea1d616dfd6ef42ce02792f7eb42dd44f5ed4439dbe17a58b/pyvers-0.1.0-py3-none-any.whl",
+  "wheel_sha256": "065249805ae537ddf9a2d1a8dffc6d0a12474a347d2eaa2f35ebdae92c0c8199",
+  "files": {
+    "pyvers/__init__.py": "aed988502fd06ca69f19a78560328f28196354baa7a82c1bea701faec88f7f6d",
+    "pyvers/backends.py": "92d63824daaafcff61c6616d932f1a2fd61e1c5e11be219f5b90d3406bbb1036",
+    "pyvers/implement_for.py": "07b67c5f5f691448f7046fa3d3bbde472fa1ddb41e814c58647de4a004a34367",
+    "LICENSE": "3d37b83cfda6b43f2fe9bdaff6260ca0e9f0ebe4f71413a3966bae56a1dbf47c",
+    "tests/_utils_internal.py": "6b8e067e5ad45110a11287958f014d69895fe23d9af585c2492028540574493f",
+    "tests/test_implement_for.py": "14338a28701d584b59ff73ab82c65cc0fe1e78fccdb8d355bd81c6fc5b6fb6b4",
+    "tests/test_backends.py": "a3f255a908184d30f1e08b030c4b6c13184302d01d47585656c83483fa7c93f3",
+    "tests/test_version.py": "b3da05c8c7638aa11f24065938c600e11feb4199fa6f2ea34493a58525d30710"
+  }
+}
