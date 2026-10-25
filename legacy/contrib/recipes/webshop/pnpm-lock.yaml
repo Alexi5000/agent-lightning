@@ -14,7 +14,7 @@ importers:
     dependencies:
       '@ai-sdk/openai':
         specifier: ^3.0.130
-        version: 3.0.130(zod@3.25.76)
+        version: 3.0.130(zod@4.6.6)
       '@opentelemetry/api':
         specifier: ^1.9.1
         version: 1.9.1
@@ -35,10 +35,10 @@ importers:
         version: 1.43.0
       ai:
         specifier: ^6.0.309
-        version: 6.0.309(zod@3.25.76)
+        version: 6.0.309(zod@4.6.6)
       zod:
-        specifier: 3.25.76
-        version: 3.25.76
+        specifier: 4.6.6
+        version: 4.6.6
     devDependencies:
       '@types/node':
         specifier: 20.17.24
@@ -312,6 +312,7 @@ packages:
   '@opentelemetry/sdk-trace-base@2.12.0':
     resolution: {integrity: sha512-JOERgZCxRM06FEJ5kEWxlSRChah6MmXDx3KwCruqEv/iEyLkTokCSemf2y1w8oIHtfrr8EVTpzebq/31vn2Cpg==}
     engines: {node: ^18.19.0 || >=20.6.0}
+    deprecated: Use @opentelemetry/sdk-trace package
     peerDependencies:
       '@opentelemetry/api': '>=1.3.0 <1.10.0'
 
@@ -705,31 +706,31 @@ packages:
     resolution: {integrity: sha512-EvRlUt/QqAEvXdQeRMYUfwOQsfzpDztykrG2owGEE/rBOBoYv9uF39ZzsNDh4lTFHhTr2XOZjKkYgueD12ZmGA==}
     engines: {node: '>=18.17'}
 
-  zod@3.25.76:
-    resolution: {integrity: sha512-gzUt/qt81nXsFGKIFcC3YnfEAx5NkunCfnDlvuBSSFS02bcXu4Lmea0AFIUwbLWxWPx3d9p8S5QoaujKcNQxcQ==}
+  zod@4.6.6:
+    resolution: {integrity: sha512-4UmzQUF5fxvfcYHlbjBmejU+w+hbDnWFx4aS8kBx7nPBHcO2SqPbpAG8snbdg+Xse4pRefR98hgjFgIMCI/UhA==}
 
 snapshots:
 
-  '@ai-sdk/gateway@3.0.217(zod@3.25.76)':
+  '@ai-sdk/gateway@3.0.217(zod@4.6.6)':
     dependencies:
       '@ai-sdk/provider': 3.0.19
-      '@ai-sdk/provider-utils': 4.0.61(zod@3.25.76)
+      '@ai-sdk/provider-utils': 4.0.61(zod@4.6.6)
       '@vercel/oidc': 3.2.0
-      zod: 3.25.76
+      zod: 4.6.6
 
-  '@ai-sdk/openai@3.0.130(zod@3.25.76)':
+  '@ai-sdk/openai@3.0.130(zod@4.6.6)':
     dependencies:
       '@ai-sdk/provider': 3.0.19
-      '@ai-sdk/provider-utils': 4.0.61(zod@3.25.76)
-      zod: 3.25.76
+      '@ai-sdk/provider-utils': 4.0.61(zod@4.6.6)
+      zod: 4.6.6
 
-  '@ai-sdk/provider-utils@4.0.61(zod@3.25.76)':
+  '@ai-sdk/provider-utils@4.0.61(zod@4.6.6)':
     dependencies:
       '@ai-sdk/provider': 3.0.19
       '@standard-schema/spec': 1.1.0
       eventsource-parser: 3.1.1
       undici: 6.29.1
-      zod: 3.25.76
+      zod: 4.6.6
 
   '@ai-sdk/provider@3.0.19':
     dependencies:
@@ -992,13 +993,13 @@ snapshots:
 
   acorn@8.19.0: {}
 
-  ai@6.0.309(zod@3.25.76):
+  ai@6.0.309(zod@4.6.6):
     dependencies:
-      '@ai-sdk/gateway': 3.0.217(zod@3.25.76)
+      '@ai-sdk/gateway': 3.0.217(zod@4.6.6)
       '@ai-sdk/provider': 3.0.19
-      '@ai-sdk/provider-utils': 4.0.61(zod@3.25.76)
+      '@ai-sdk/provider-utils': 4.0.61(zod@4.6.6)
       '@opentelemetry/api': 1.9.1
-      zod: 3.25.76
+      zod: 4.6.6
 
   any-promise@1.3.0: {}
 
@@ -1230,4 +1231,4 @@ snapshots:
 
   undici@6.29.1: {}
 
-  zod@3.25.76: {}
+  zod@4.6.6: {}
