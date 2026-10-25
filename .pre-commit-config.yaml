@@ -1,4 +1,4 @@
-exclude: ^(\.agents/|examples/llm-in-sandbox/vendor/|legacy/)
+exclude: ^(\.agents/|examples/llm-in-sandbox/vendor/|legacy/|vendor/pyvers/(pyvers|tests)/|vendor/pyvers/LICENSE$)
 
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks

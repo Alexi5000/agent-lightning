@@ -39,6 +39,7 @@ dev = [
     "pytest-asyncio>=0.25.0",
     "pytest-cov>=6.0.0",
     "pre-commit>=4.0.0",
+    "virtualenv>=21.14.9",
     "openai>=2.0.0,<3",
     "ruff>=0.11.0",
     "pyright>=1.1.390",
@@ -56,6 +57,7 @@ Repository = "https://github.com/microsoft/agent-lightning"
 Issues = "https://github.com/microsoft/agent-lightning/issues"
 
 [tool.uv.sources]
+pyvers = { path = "vendor/pyvers" }
 torch = [
   { index = "pytorch-cpu", group = "verl-cpu" },
 ]
@@ -71,7 +73,7 @@ url = "https://download.pytorch.org/whl/cpu"
 [tool.ruff]
 line-length = 120
 target-version = "py312"
-exclude = ["examples/llm-in-sandbox/vendor", "legacy"]
+exclude = ["examples/llm-in-sandbox/vendor", "legacy", "vendor/pyvers/pyvers", "vendor/pyvers/tests"]
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "UP", "B", "SIM", "RUF"]
@@ -121,7 +123,8 @@ verl-cpu = [
     "verl>=0.7.1,<0.9.0",
     "torch",
     "ray",
-    "tensordict",
+    "tensordict>=0.10.0,<0.11",
+    "pyvers==0.1.0+agl.1",
     "datasets",
     "pyarrow<26",
     "numpy",

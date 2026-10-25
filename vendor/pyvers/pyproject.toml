@@ -1,0 +1,14 @@
+[build-system]
+requires = ["hatchling>=1.27"]
+build-backend = "hatchling.build"
+
+[project]
+name = "pyvers"
+version = "0.1.0+agl.1"
+description = "Pyvers 0.1.0 with tested packaging 26 compatibility"
+requires-python = ">=3.9"
+license = "MIT"
+dependencies = ["packaging>=25,<27"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["pyvers"]

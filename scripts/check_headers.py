@@ -11,7 +11,7 @@ from pathlib import Path
 HEADER = "# Copyright (c) Microsoft. All rights reserved."
 REPO_ROOT = Path(__file__).resolve().parent.parent
 SOURCE_SUFFIXES = (".py", ".pyi", ".pyw")
-EXCLUDED_PREFIXES = ("examples/llm-in-sandbox/vendor/", "legacy/")
+EXCLUDED_PREFIXES = ("examples/llm-in-sandbox/vendor/", "legacy/", "vendor/pyvers/pyvers/", "vendor/pyvers/tests/")
 
 
 def iter_source_files() -> list[Path]:
