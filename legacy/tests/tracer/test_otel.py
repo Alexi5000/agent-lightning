@@ -513,6 +513,7 @@ def test_context_manager_reusability(store: MagicMock):
 
 
 def _otel_reward_subprocess(mode: str, conn: Connection[tuple[str, Any]]) -> None:
+    conn.send(("ready", None))
     asyncio.run(_otel_reward_subprocess_async(mode, conn))
 
 
@@ -581,6 +582,12 @@ def _run_otel_reward_test(mode: str) -> dict[str, Any]:
     parent_conn, child_conn = ctx.Pipe(duplex=False)
     proc = ctx.Process(target=_otel_reward_subprocess, args=(mode, child_conn))
     proc.start()
+    if not parent_conn.poll(60.0):
+        proc.terminate()
+        proc.join(5)
+        parent_conn.close()
+        pytest.fail(f"Subprocess for mode {mode!r} did not finish importing.")
+    assert parent_conn.recv() == ("ready", None)
     proc.join(15.0)
 
     if proc.is_alive():
