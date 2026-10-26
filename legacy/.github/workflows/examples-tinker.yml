@@ -55,8 +55,6 @@ jobs:
         run: |
           uv sync --frozen --no-default-groups \
             --group dev --group experiment --group agents --group torch-cpu --group core-stable --group tinker
-      - name: Install explicit legacy CrewAI example dependencies
-        run: uv pip install -r examples/tinker/legacy-crewai/requirements.txt
       - name: Freeze dependencies
         run: |
           set -euo pipefail
@@ -112,7 +110,6 @@ jobs:
         env:
           OPENAI_BASE_URL: ${{ secrets.AZURE_OPENAI_ENDPOINT_SWEDEN }}
           OPENAI_API_KEY: ${{ secrets.AZURE_OPENAI_API_KEY_SWEDEN }}
-          CREWAI_DISABLE_TELEMETRY: true
           TINKER_API_KEY: ${{ secrets.TINKER_API_KEY }}
 
       - name: Tinker Q20 Evaluate (Qwen3-30B-A3B-Instruct-2507)
@@ -125,7 +122,6 @@ jobs:
         env:
           OPENAI_BASE_URL: ${{ secrets.AZURE_OPENAI_ENDPOINT_SWEDEN }}
           OPENAI_API_KEY: ${{ secrets.AZURE_OPENAI_API_KEY_SWEDEN }}
-          CREWAI_DISABLE_TELEMETRY: true
           TINKER_API_KEY: ${{ secrets.TINKER_API_KEY }}
 
       - name: Tinker Q20 Training Dry Run
@@ -138,7 +134,6 @@ jobs:
         env:
           OPENAI_BASE_URL: ${{ secrets.AZURE_OPENAI_ENDPOINT_SWEDEN }}
           OPENAI_API_KEY: ${{ secrets.AZURE_OPENAI_API_KEY_SWEDEN }}
-          CREWAI_DISABLE_TELEMETRY: true
           TINKER_API_KEY: ${{ secrets.TINKER_API_KEY }}
 
       - name: Tinker Q20 Training
@@ -168,5 +163,4 @@ jobs:
         env:
           OPENAI_BASE_URL: ${{ secrets.AZURE_OPENAI_ENDPOINT_SWEDEN }}
           OPENAI_API_KEY: ${{ secrets.AZURE_OPENAI_API_KEY_SWEDEN }}
-          CREWAI_DISABLE_TELEMETRY: true
           TINKER_API_KEY: ${{ secrets.TINKER_API_KEY }}

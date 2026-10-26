@@ -2,7 +2,7 @@
 
 """Evaluate a language model on the 20 Questions benchmark.
 
-This script reuses the CrewAI flow defined in `q20_agent.py` to simulate a
+This script reuses the 20 Questions flow defined in `q20_agent.py` to simulate a
 complete 20 Questions match where the model under test plays the role of the
 player. The answerer and (optionally) the search helper continue to run on
 hosted OpenAI endpoints, so you must provide credentials before starting.
@@ -12,9 +12,7 @@ Environment setup:
 1. Copy `examples/tinker/.env.example` to `examples/tinker/.env`.
 2. Fill in `OPENAI_API_KEY` and `OPENAI_BASE_URL` so the helper agents can
    route through your OpenAI-compatible endpoint.
-3. Keep `CREWAI_DISABLE_TELEMETRY=true` to prevent CrewAI from emitting usage
-   metrics that would conflict with AgentOps tracing.
-4. Add `TINKER_API_KEY` if you plan to evaluate against models on Tinker service.
+3. Add `TINKER_API_KEY` if you plan to evaluate against models on Tinker service.
 
 Example usage:
 
@@ -41,8 +39,7 @@ from typing import Any, List, Optional
 
 import pandas as pd
 from agl_tinker.llm import create_llm_proxy
-from crewai import LLM as CrewLLM
-from q20_agent import AnswererResponse, SearchTool, TwentyQuestionsFlow
+from q20_agent import ChatModel, SearchTool, TwentyQuestionsFlow
 from rich.console import Console
 
 from agentlightning import InMemoryLightningStore, LightningStoreThreaded, LLMProxy
@@ -124,21 +121,18 @@ async def evaluate_q20(
 
     try:
         await llm_proxy.start()
-        player_llm = CrewLLM(
-            model="openai/" + model_name, base_url=f"http://localhost:{port}/v1", api_key="dummy", timeout=180.0
-        )
-        answer_llm = CrewLLM(
-            model="openai/" + answerer_model_name,
+        player_llm = ChatModel(model=model_name, base_url=f"http://localhost:{port}/v1", api_key="dummy", timeout=180.0)
+        answer_llm = ChatModel(
+            model=answerer_model_name,
             base_url=f"http://localhost:{port}/v1",
             api_key="dummy",
             reasoning_effort="low",
-            response_format=AnswererResponse,
             timeout=180.0,
         )
         search_tool = (
             SearchTool(
-                model=CrewLLM(
-                    model="openai/" + search_model_name,
+                model=ChatModel(
+                    model=search_model_name,
                     base_url=f"http://localhost:{port}/v1",
                     api_key="dummy",
                     reasoning_effort="none",

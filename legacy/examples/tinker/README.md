@@ -64,13 +64,14 @@ Agent-lightning hides that translation step: you keep the first style for develo
 | Path | Purpose |
 | ---- | ------- |
 | `hello.py` | Minimal end-to-end fine-tuning example. Trains a model to repeat small identity strings. |
-| `q20_agent.py` | CrewAI flow that powers the 20 Questions player, answerer, and mock search tool. Shared by training and evaluation. **Unrelated to Agent-lightning or Tinker.** |
+| `q20_agent.py` | Framework-free flow (OpenAI-compatible chat completions with tool calling) that powers the 20 Questions player, answerer, and mock search tool. Shared by training and evaluation. **Unrelated to Agent-lightning or Tinker.** |
 | `q20_train.py` | Reinforcement-learning driver that adapts the Cookbook loop to Agent-lightning rollouts. Supports dry-run, distributed training, and search tool toggles. **Related to both Agent-lightning and Tinker.** |
-| `q20_evaluate.py` | Offline evaluator that reuses the CrewAI flow to benchmark any OpenAI- or Qwen-backed model against the provided dataset. **Related to Tinker only.** |
+| `q20_evaluate.py` | Offline evaluator that reuses the q20 flow to benchmark any OpenAI- or Qwen-backed model against the provided dataset. **Related to Tinker only.** |
 | `q20_nouns.csv` | Categories and answers used for training and validation. Contains `split` and `search_enabled` metadata. |
 | `agl_tinker/` | Bridge package for integrating Agent-lightning with Tinker (see breakdown below). |
 | `tests/test_tinker_llm.py` | Sanity tests for the custom LiteLLM provider. Run with `pytest examples/tinker/tests`. |
-| `.env.example` | Template for environment variables required by LiteLLM, CrewAI helpers, and the hosted Tinker service. |
+| `tests/test_q20_agent.py` | Offline contract tests for the q20 player, search tool and structured answerer against a mocked OpenAI-compatible endpoint. |
+| `.env.example` | Template for environment variables required by LiteLLM, the q20 helper agents, and the hosted Tinker service. |
 
 `agl_tinker/` components:
 
@@ -84,17 +85,15 @@ Agent-lightning hides that translation step: you keep the first style for develo
 
 ## Setup
 
-**Security status:** CrewAI 1.6.1 requires ChromaDB 1.1.1, with unresolved critical code-injection advisories. The root install and lock no longer include this integration. The explicit legacy requirements remain visible to dependency scanners and are not certified safe. Use only a disposable isolated environment without production data or credentials; do not expose its Chroma service. The q20 example code remains available, and the separate Tinker bridge can be installed without CrewAI. The q20 search tool uses `crewai.tools.BaseTool` from core CrewAI; the unrelated `crewai-tools` integrations extra is not installed.
+**Security status:** The q20 example previously ran on CrewAI, which requires ChromaDB; every ChromaDB release through 1.5.9 carries unpatched critical advisories (GHSA-f4j7-r4q5-qw2c, GHSA-36p7-vc44-83pf) and no fixed release exists. The q20 player, answerer and search tool now call the OpenAI-compatible chat-completions API directly, so neither CrewAI nor ChromaDB is installed by any profile or requirements file in this example.
 
 **1. Install dependencies.** From the repo root:
 
 ```bash
 uv sync --frozen --extra apo --group dev --group agents --group tinker
-# Only for the legacy CrewAI q20 example, in a disposable environment:
-uv pip install -r examples/tinker/legacy-crewai/requirements.txt
 ```
 
-If you are not using `uv`, make sure `tinker`, `tinker_cookbook`, `litellm`, `crewai`, and Agent-lightning are available in the same environment.
+If you are not using `uv`, make sure `tinker`, `tinker_cookbook`, `litellm`, `openai`, and Agent-lightning are available in the same environment.
 
 **2. Copy the environment template and fill in credentials:**
 
@@ -105,7 +104,6 @@ cp examples/tinker/.env.example examples/tinker/.env
 - `OPENAI_API_KEY` / `OPENAI_BASE_URL`: routes helper agents (answerer, search, tool simulations) through a LiteLLM or OpenAI-compatible endpoint.
 - `TINKER_API_KEY`: required to talk to the hosted Tinker training service. Skip if you are using OpenAI models only.
 - `WANDB_API_KEY`: optional, enables Weights & Biases logging when configured in `q20_train.py`.
-- `CREWAI_DISABLE_TELEMETRY=true`: keeps CrewAI from emitting its own telemetry so that Agent-lightning tracing stays coherent.
 
 3. Load the environment before running commands, e.g. `dotenv run -- <command>` or export the variables manually.
 
@@ -133,7 +131,7 @@ Start the commands in separate terminals. The algorithm process connects to the 
 
 ## Training the 20 Questions agent
 
-The 20 Questions setup mirrors the official Cookbook recipe but drives rollouts through the shared CrewAI flow.
+The 20 Questions setup mirrors the official Cookbook recipe but drives rollouts through the shared q20 flow.
 
 **Dry run (in-memory store and LiteLLM proxy)**
 
@@ -141,7 +139,7 @@ The 20 Questions setup mirrors the official Cookbook recipe but drives rollouts 
 dotenv run python q20_train.py dryrun
 ```
 
-Useful to verify that the CrewAI flow, reward emission, and span reconstruction succeed on a handful of samples without touching the hosted Tinker service.
+Useful to verify that the q20 flow, reward emission, and span reconstruction succeed on a handful of samples without touching the hosted Tinker service.
 
 **Full distributed training**
 
@@ -157,7 +155,7 @@ You can run additional runner processes at any time; they register with the stor
 
 ## Evaluating a model on 20 Questions
 
-Reuse the CrewAI flow to benchmark any OpenAI-compatible model (hosted on Tinker, OpenAI, or another LiteLLM backend):
+Reuse the q20 flow to benchmark any OpenAI-compatible model (hosted on Tinker, OpenAI, or another LiteLLM backend):
 
 ```bash
 dotenv run python q20_evaluate.py \
@@ -182,5 +180,4 @@ Because spans and rewards are emitted by the same rollout function you would dep
 ## Troubleshooting tips
 
 - If the runner logs show `Triplet has no token_ids`, ensure your LiteLLM proxy returns logprobs and token IDs, and that the token IDs are present in the store. The provided adapter requires them to rebuild trajectories. See the debugging tutorial for more details.
-- CrewAI telemetry must stay disabled (see `.env.example`) so AgentOps traces remain self-contained; otherwise, you may see malformed traces.
 - Tune `learning_rate`, `batch_size` and `group_size` carefully. The training is sensitive to these hyper-parameters.

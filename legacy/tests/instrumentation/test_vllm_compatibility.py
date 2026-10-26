@@ -29,9 +29,10 @@ class ModernError(BaseModel):
     error: ErrorInfo
 
 
-@pytest.fixture(params=[False, True], ids=["legacy", "split"])
+@pytest.fixture(params=["legacy", "split", "serve"], ids=["legacy", "split", "serve"])
 def serving_module(monkeypatch: pytest.MonkeyPatch, request: pytest.FixtureRequest) -> Any:
-    modern = request.param
+    layout = request.param
+    modern = layout != "legacy"
     seen: list[Any] = []
     error_type = ModernError if modern else LegacyError
 
@@ -70,6 +71,13 @@ def serving_module(monkeypatch: pytest.MonkeyPatch, request: pytest.FixtureReque
         if name in {"vllm.entrypoints.openai.serving_chat", "vllm.entrypoints.openai.chat_completion.serving"}:
             return SimpleNamespace(OpenAIServingChat=Serving)
         if name == "vllm.entrypoints.openai.engine.protocol":
+            if layout == "serve":
+                # vLLM 0.30/0.31 ship ErrorResponse under vllm.entrypoints.serve.engine.protocol only.
+                raise ModuleNotFoundError(name="vllm.entrypoints.openai.engine")
+            return SimpleNamespace(ErrorResponse=ModernError)
+        if name == "vllm.entrypoints.serve.engine.protocol":
+            if layout != "serve":
+                raise AssertionError("serve layout must only be used as a fallback")
             return SimpleNamespace(ErrorResponse=ModernError)
         return original_import(name, package)
 

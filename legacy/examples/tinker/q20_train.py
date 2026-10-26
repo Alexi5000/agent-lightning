@@ -5,7 +5,7 @@
 This script adapts the reinforcement-learning loop from the Tinker Cookbook to
 Agent-lightning's rollout architecture. Instead of invoking the official Tinker
 `do_group_rollout` helper, we enqueue tasks through Agent-lightning so every
-trajectory is executed by the same CrewAI flow used at evaluation time.
+trajectory is executed by the same 20 Questions flow used at evaluation time.
 
 Before running, configure credentials by copying `examples/tinker/.env.example`
 to `examples/tinker/.env` and populating:
@@ -44,8 +44,7 @@ from agl_tinker.env import AGLDatasetBuilder
 from agl_tinker.llm import create_llm_proxy
 from agl_tinker.train import Config
 from agl_tinker.train import main as entrypoint
-from crewai import LLM as CrewLLM
-from q20_agent import AnswererResponse, SearchTool, TwentyQuestionsFlow
+from q20_agent import ChatModel, SearchTool, TwentyQuestionsFlow
 from rich.console import Console
 
 import agentlightning as agl
@@ -92,19 +91,18 @@ async def q20_agent(task: Q20Task, llm: agl.LLM, rollout: agl.Rollout) -> None:
     """
     answer_llm_setting = os.getenv("ANSWERER_LLM", "gpt-5-mini")
     search_llm_setting = os.getenv("SEARCH_LLM", "gpt-4.1")
-    player_llm = CrewLLM(model="openai/" + llm.model, base_url=llm.endpoint, api_key="dummy", timeout=LLM_TIMEOUT)
-    answer_llm = CrewLLM(
-        model="openai/" + answer_llm_setting,
+    player_llm = ChatModel(model=llm.model, base_url=llm.endpoint, api_key="dummy", timeout=LLM_TIMEOUT)
+    answer_llm = ChatModel(
+        model=answer_llm_setting,
         base_url=os.getenv("OPENAI_BASE_URL"),
         api_key=os.getenv("OPENAI_API_KEY"),
         reasoning_effort="low",
-        response_format=AnswererResponse,
         timeout=LLM_TIMEOUT,
     )
     if task["search_enabled"]:
         search_tool = SearchTool(
-            model=CrewLLM(
-                model="openai/" + search_llm_setting,
+            model=ChatModel(
+                model=search_llm_setting,
                 base_url=os.getenv("OPENAI_BASE_URL"),
                 api_key=os.getenv("OPENAI_API_KEY"),
                 reasoning_effort="none",
