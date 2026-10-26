@@ -55,9 +55,6 @@ jobs:
           UV_PROJECT_ENVIRONMENT=.venv-providers uv sync --frozen --no-default-groups --group dev --group agents --group core-stable
           UV_PROJECT_ENVIRONMENT=.venv-tinker uv sync --frozen --no-default-groups --group dev --group tinker --group torch-cpu
         if: matrix.setup != 'fast'
-      - name: Install isolated legacy integration for compatibility checks
-        run: uv pip install -r examples/tinker/legacy-crewai/requirements.txt
-        if: matrix.setup != 'fast'
       # This pre-commit skips JavaScript on purpose.
       - name: Run pre-commit
         uses: pre-commit/action@2c7b3805fd2a0fd8c1884dcaebf91fc102a13ecd
@@ -67,6 +64,7 @@ jobs:
           uv run --no-sync pytest -v tests/test_xgrammar_compat.py
           uv run --no-sync pytest -v tests/instrumentation/test_verl_training_contract.py tests/instrumentation/test_verl_server_registration.py
           PYTHONPATH=.:examples/tinker .venv-tinker/bin/python -m pytest -v examples/tinker/tests/test_training_contract.py
+          PYTHONPATH=.:examples/tinker .venv-tinker/bin/python -m pytest -v examples/tinker/tests/test_q20_agent.py
         if: matrix.setup != 'fast'
       - name: Check Python headers
         run: uv run --locked --no-sync scripts/check_headers.py

@@ -37,7 +37,7 @@ apo = [
 # though it's listed here for completeness.
 verl = [
   "verl==0.9.1; platform_machine == 'x86_64' and python_version >= '3.11' and python_version < '3.13'",
-  "vllm==0.30.0; platform_machine == 'x86_64' and python_version >= '3.11' and python_version < '3.13'",
+  "vllm==0.31.0; platform_machine == 'x86_64' and python_version >= '3.11' and python_version < '3.13'",
 ]
 
 weave = [
@@ -104,7 +104,7 @@ torch-stable = [
   "torch==2.13.0; platform_machine == 'x86_64'",
   "torchvision==0.28.0; platform_machine == 'x86_64'",
   "transformers==5.10.4; platform_machine == 'x86_64'",
-  "vllm==0.30.0; platform_machine == 'x86_64' and python_version >= '3.11' and python_version < '3.13'",
+  "vllm==0.31.0; platform_machine == 'x86_64' and python_version >= '3.11' and python_version < '3.13'",
   "litellm[proxy]>=1.88.6,<1.104; platform_machine == 'x86_64'",
 ]
 
@@ -219,7 +219,9 @@ conflicts = [
   ],
 ]
 environments = [
-  "sys_platform == 'linux'",
+  # litellm[proxy] (via pyroscope-io), poml and CPU torchvision publish no s390x artifacts,
+  # so the base install was already unsatisfiable on Linux s390x.
+  "sys_platform == 'linux' and platform_machine != 's390x'",
 ]
 dependency-metadata = [
   # Patch the dependencies of instructor to unpin "openai".

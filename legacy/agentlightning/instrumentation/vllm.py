@@ -19,7 +19,13 @@ except ModuleNotFoundError as exc:
     ErrorResponse = protocol.ErrorResponse
 else:
     serving = import_module("vllm.entrypoints.openai.chat_completion.serving")
-    ErrorResponse = import_module("vllm.entrypoints.openai.engine.protocol").ErrorResponse
+    try:
+        ErrorResponse = import_module("vllm.entrypoints.openai.engine.protocol").ErrorResponse
+    except ModuleNotFoundError as exc:
+        if exc.name not in {"vllm.entrypoints.openai.engine", "vllm.entrypoints.openai.engine.protocol"}:
+            raise
+        # vLLM 0.30+ moved the shared engine protocol under ``vllm.entrypoints.serve``.
+        ErrorResponse = import_module("vllm.entrypoints.serve.engine.protocol").ErrorResponse
 
 ChatCompletionRequest = protocol.ChatCompletionRequest
 ChatCompletionResponse = protocol.ChatCompletionResponse

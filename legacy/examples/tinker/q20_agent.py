@@ -1,28 +1,73 @@
 # Copyright (c) Microsoft. All rights reserved.
 
-"""CrewAI-based 20 Questions agents tailored for Agent-lightning demos.
+"""Framework-free 20 Questions agents tailored for Agent-lightning demos.
 
 This module wires up the player, answerer, and auxiliary tooling that power the
 20 Questions examples under ``examples/tinker``.
 
 It mirrors the high-level game loop used in the original Tinker Cookbook example,
-but is far more complicated in that it uses an advanced agent orchestration framework (CrewAI)
-and incorporates a simulated web search tool, as well as interactions between multiple agents.
+with multiple interacting agents and a simulated web search tool exposed through
+OpenAI-compatible tool calling. Earlier revisions used CrewAI, whose required
+ChromaDB dependency carries unpatched critical advisories; the same player,
+answerer and search behavior now runs directly on the OpenAI-compatible
+chat-completions API, so every call still flows through the Agent-lightning
+LLM proxy and tracer.
 """
 
 from __future__ import annotations
 
-from typing import Any, List, Literal, Optional, cast
+import json
+from dataclasses import dataclass, field
+from typing import Any, Dict, List, Literal, Optional, cast
 
-from crewai import LLM as CrewLLM
-from crewai import Agent as CrewAgent
-from crewai import BaseLLM
-from crewai.flow import Flow, listen, router, start
-from crewai.tools import BaseTool
-from pydantic import BaseModel, Field
+import httpx
+from openai import AsyncOpenAI
+from openai.types.chat import ChatCompletion
+from pydantic import BaseModel, Field, ValidationError
 from rich.console import Console
 
 console = Console()
+
+
+@dataclass
+class ChatModel:
+    """Connection settings for one OpenAI-compatible chat model.
+
+    Attributes:
+        model: Model name as understood by the endpoint (no provider prefix).
+        base_url: OpenAI-compatible base URL. ``None`` uses the OpenAI SDK default.
+        api_key: API key for the endpoint.
+        timeout: Request timeout in seconds.
+        reasoning_effort: Optional reasoning effort forwarded to the endpoint.
+        http_client: Optional HTTP client, mainly for tests and custom transports.
+    """
+
+    model: str
+    base_url: Optional[str] = None
+    api_key: Optional[str] = None
+    timeout: float = 120.0
+    reasoning_effort: Optional[str] = None
+    http_client: Optional[httpx.AsyncClient] = None
+    _client: Optional[AsyncOpenAI] = field(default=None, init=False, repr=False)
+
+    @property
+    def client(self) -> AsyncOpenAI:
+        if self._client is None:
+            self._client = AsyncOpenAI(
+                base_url=self.base_url,
+                api_key=self.api_key or "dummy",
+                timeout=self.timeout,
+                http_client=self.http_client,
+            )
+        return self._client
+
+    async def chat(self, messages: List[Dict[str, Any]], **kwargs: Any) -> Dict[str, Any]:
+        """Run one chat completion and return the first choice message as a plain dict."""
+        if self.reasoning_effort is not None:
+            kwargs.setdefault("reasoning_effort", self.reasoning_effort)
+        create: Any = self.client.chat.completions.create
+        completion = cast(ChatCompletion, await create(model=self.model, messages=messages, **kwargs))
+        return completion.choices[0].message.model_dump(exclude_none=True)
 
 
 class AnswererResponse(BaseModel):
@@ -127,6 +172,16 @@ Return a concise, factual summary (2-4 sentences) of the most relevant informati
 Avoid speculation, filler, or references to being an AI. Just give the facts."""
 
 
+SEARCH_SYSTEM_PROMPT = (
+    "You simulate a web search engine, producing factual, neutral summaries. "
+    "Given a user's search query, return a concise, factual summary as if retrieved from reliable sources. "
+    "Do not fabricate sources or URLs. Focus on core, verifiable facts. "
+    "Never disclose that you are a simulator of a search engine."
+)
+
+MAX_SEARCH_QUERY_CHARS = 500
+
+
 class SearchToolInput(BaseModel):
     """Schema for search tool input."""
 
@@ -136,47 +191,54 @@ class SearchToolInput(BaseModel):
     )
 
 
-class SearchTool(BaseTool):
+class SearchTool:
     """A mock web search tool powered by an LLM.
 
     This class mimics a real search engine call by using a lightweight LLM model.
     It can later be replaced by a real API (like Serper or Bing) without changing its interface.
     """
 
-    model: BaseLLM
     name: str = "search"
     description: str = "Search the web. Provide a concise, factual summary of what is known about the given topic."
-    num_called: int = 0
 
-    def _run(self, search_query: str) -> str:
+    def __init__(self, model: ChatModel) -> None:
+        self.model = model
+        self.num_called = 0
+
+    def tool_spec(self) -> Dict[str, Any]:
+        """OpenAI function-calling specification for this tool."""
+        return {
+            "type": "function",
+            "function": {
+                "name": self.name,
+                "description": self.description,
+                "parameters": SearchToolInput.model_json_schema(),
+            },
+        }
+
+    async def run(self, search_query: str) -> str:
         """Perform a mocked search request using an LLM."""
         self.num_called += 1
         # Safety: ensure input is not too long or empty
         search_query = search_query.strip()
         if not search_query:
             return "No query provided."
-        if len(search_query) > 500:
-            search_query = search_query[:500] + "..."
-
-        # Use a lightweight CrewAgent to simulate a factual web summary
-        agent = CrewAgent(
-            role="Search engine summarizer",
-            goal=(
-                "Given a user's search query, return a concise, factual summary "
-                "as if retrieved from reliable sources. "
-                "Act like a real search engine summarizer. "
-                "Never disclose that you are a simulator of a search engine."
-            ),
-            backstory=(
-                "You simulate a web search engine, producing factual, neutral summaries. "
-                "Do not fabricate sources or URLs. Focus on core, verifiable facts."
-            ),
-            llm=self.model,
-        )
+        if len(search_query) > MAX_SEARCH_QUERY_CHARS:
+            search_query = search_query[:MAX_SEARCH_QUERY_CHARS] + "..."
 
         prompt = SEARCH_PROMPT_TEMPLATE.format(search_query=search_query)
-        result = agent.kickoff(prompt)
-        return result.raw.strip()
+        message = await self.model.chat(
+            [{"role": "system", "content": SEARCH_SYSTEM_PROMPT}, {"role": "user", "content": prompt}]
+        )
+        return str(message.get("content") or "").strip()
+
+    async def run_tool_call(self, arguments: str) -> str:
+        """Execute a tool call whose arguments are a JSON object matching :class:`SearchToolInput`."""
+        try:
+            parsed = SearchToolInput.model_validate_json(arguments or "{}")
+        except ValidationError as exc:
+            return f"Invalid search arguments: {exc.errors(include_url=False, include_input=False)}"
+        return await self.run(parsed.search_query)
 
 
 class Turn(BaseModel):
@@ -226,66 +288,119 @@ class TwentyQuestionsGameState(BaseModel):
         )
 
 
-class TwentyQuestionsFlow(Flow[TwentyQuestionsGameState]):
-    """CrewAI Flow for running a 20 Questions game.
+PLAYER_SYSTEM_PROMPT = (
+    "You are a player in a game of 20 questions. "
+    "Goal: minimize uncertainty and identify the hidden entity within 20 yes/no questions. "
+    "You are a focused reasoner who uses binary-partition questions to narrow down the remaining possibilities."
+)
 
-    This flow coordinates the player and answerer agents through the game.
+ANSWERER_SYSTEM_PROMPT = "Reply only with a JSON object matching the requested schema."
+
+# Maximum model calls per player turn when the search tool is available. The player is
+# instructed to search at most once per question; extra rounds absorb malformed tool use.
+PLAYER_MAX_ITER = 3
+
+
+class TwentyQuestionsFlow:
+    """Run one 20 Questions game between a player and an answerer.
+
+    The player may call the optional search tool through OpenAI-compatible tool calling.
+    The answerer returns a structured :class:`AnswererResponse`.
     """
 
-    def __init__(self, *args: Any, **kwargs: Any):
-        """Initialize the flow with player, answerer, and optional search tool.
+    def __init__(
+        self,
+        *,
+        player_llm: ChatModel,
+        answer_llm: ChatModel,
+        search_tool: Optional[SearchTool] = None,
+    ) -> None:
+        self.player_llm = player_llm
+        self.answer_llm = answer_llm
+        self.search_tool = search_tool
+        self.state = TwentyQuestionsGameState()
 
-        Args:
-            *args: Positional arguments to pass to Flow.
-            **kwargs: Keyword arguments including player_llm, answer_llm, and search_tool.
-        """
-        self.player_llm = cast(CrewLLM, kwargs.pop("player_llm"))
-        self.answer_llm = cast(CrewLLM, kwargs.pop("answer_llm"))
-        self.search_tool = cast(Optional[SearchTool], kwargs.pop("search_tool", None))
-        super().__init__(*args, **kwargs)
-
-    @start("next_turn")
-    def ask_question(self):
-        """Generate the next question from the player agent."""
-        agent = CrewAgent(
-            role="Player in a game of 20 questions",
-            goal="Minimize uncertainty and identify the hidden entity within 20 yes/no questions.",
-            backstory="A focused reasoner who uses binary-partition questions to narrow down the remaining possibilities.",
-            tools=[self.search_tool] if self.search_tool else [],
-            llm=self.player_llm,
-            max_iter=3,  # Maximum iterations of tool calls
-            # Agent is instructed to use at most 1 search tool call per question.
-            # but here it's allowed up to 3 chances.
-            # Otherwise, the agent will be forced by CrewAI to give the "BEST Final answer"
-            # which is not even a question that we want.
+    async def kickoff_async(self, inputs: Dict[str, Any]) -> TwentyQuestionsGameState:
+        """Play a full game. ``inputs`` must provide ``answer`` and ``category``."""
+        self.state = TwentyQuestionsGameState(
+            answer=str(inputs["answer"]),
+            category=str(inputs["category"]),
         )
+        while True:
+            await self.ask_question()
+            await self.answer_question()
+            if self.game_should_continue() == "game_over":
+                break
+        self.finish()
+        return self.state
+
+    async def ask_question(self) -> None:
+        """Generate the next question from the player agent."""
         query = PLAYER_QUERY_TEMPLATE.format(
             history=self.state.render_history(),
             turn_index=self.state.turn_index,
             remaining_turns=20 - self.state.turn_index + 1,
             category=self.state.category,
         )
-
-        result = agent.kickoff(query)
-        console.print(f"[bold red]Player (Turn {self.state.turn_index}):[/bold red] {result.raw}")
+        messages: List[Dict[str, Any]] = [
+            {"role": "system", "content": PLAYER_SYSTEM_PROMPT},
+            {"role": "user", "content": query},
+        ]
+        question = ""
+        for iteration in range(PLAYER_MAX_ITER):
+            use_tools = self.search_tool is not None and iteration < PLAYER_MAX_ITER - 1
+            kwargs: Dict[str, Any] = {}
+            if use_tools and self.search_tool is not None:
+                kwargs["tools"] = [self.search_tool.tool_spec()]
+            message = await self.player_llm.chat(messages, **kwargs)
+            tool_calls: List[Dict[str, Any]] = list(message.get("tool_calls") or [])
+            if not use_tools or not tool_calls or self.search_tool is None:
+                question = str(message.get("content") or "").strip()
+                break
+            messages.append({"role": "assistant", "content": message.get("content") or "", "tool_calls": tool_calls})
+            for tool_call in tool_calls:
+                function: Dict[str, Any] = tool_call.get("function") or {}
+                if function.get("name") == self.search_tool.name:
+                    result = await self.search_tool.run_tool_call(str(function.get("arguments") or ""))
+                else:
+                    result = f"Unknown tool: {function.get('name')!r}"
+                messages.append({"role": "tool", "tool_call_id": tool_call.get("id", ""), "content": result})
+        console.print(f"[bold red]Player (Turn {self.state.turn_index}):[/bold red] {question}")
         if self.search_tool is not None:
             self.state.num_tool_calls = self.search_tool.num_called
-        self.state.next_question = result.raw
+        self.state.next_question = question
 
-    @listen(ask_question)
-    def answer_question(self):
+    async def _call_answerer(self, query: str) -> AnswererResponse:
+        message = await self.answer_llm.chat(
+            [{"role": "system", "content": ANSWERER_SYSTEM_PROMPT}, {"role": "user", "content": query}],
+            response_format={
+                "type": "json_schema",
+                "json_schema": {"name": "AnswererResponse", "schema": AnswererResponse.model_json_schema()},
+            },
+        )
+        content = str(message.get("content") or "")
+        try:
+            return AnswererResponse.model_validate_json(content)
+        except ValidationError:
+            # Some backends wrap JSON in prose or code fences; take the outermost object.
+            start, end = content.find("{"), content.rfind("}")
+            if start == -1 or end <= start:
+                raise
+            return AnswererResponse.model_validate(json.loads(content[start : end + 1]))
+
+    async def answer_question(self) -> None:
         """Process the player's question and generate an answer."""
         query = ANSWERER_QUERY_TEMPLATE.format(
             answer=self.state.answer, next_question=self.state.next_question, category=self.state.category
         )
         # NOTE: We can also ground the answerer with a search tool.
         # But it would make the example too complicated for now.
-        answerer_response = cast(AnswererResponse, self.answer_llm.call(query))  # type: ignore
-        console.print(f"[bold red]Answerer (Turn {self.state.turn_index}):[/bold red] {answerer_response}")
         try:
+            answerer_response = await self._call_answerer(query)
+            console.print(f"[bold red]Answerer (Turn {self.state.turn_index}):[/bold red] {answerer_response}")
             turn = Turn(question=self.state.next_question, response=answerer_response.yes_or_no)
             correct = answerer_response.correct
-        except Exception as e:
+        except (ValidationError, ValueError) as e:
             console.print(f"[bold red]Answerer Response Format Error: {e}[/bold red]")
             # Assuming n/a
             turn = Turn(question=self.state.next_question, response="n/a")
@@ -294,8 +409,7 @@ class TwentyQuestionsFlow(Flow[TwentyQuestionsGameState]):
         self.state.next_question = ""  # Reset the next question
         self.state.correct = correct
 
-    @router(answer_question)
-    def game_should_continue(self):
+    def game_should_continue(self) -> Literal["game_over", "next_turn"]:
         """Determine if the game should continue or end.
 
         Returns:
@@ -314,7 +428,6 @@ class TwentyQuestionsFlow(Flow[TwentyQuestionsGameState]):
             console.print(f"[bold purple]Continue with turn #{self.state.turn_index}...[/bold purple]")
             return "next_turn"
 
-    @listen("game_over")
-    def finish(self):
+    def finish(self) -> None:
         """Handle game completion."""
         console.print("The flow has reached the finished state.")
